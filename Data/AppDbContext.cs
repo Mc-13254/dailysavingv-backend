@@ -80,6 +80,30 @@ public class AppDbContext : DbContext
         modelBuilder.Entity<Habiliter>().HasKey(x => new { x.RoleID, x.FonctionnaliteID, x.HabilitationID });
         modelBuilder.Entity<RoleFonctionnalite>().HasKey(x => new { x.RoleID, x.FonctionnaliteID });
 
+        // The properties below don't match EF Core's automatic key-discovery
+        // convention (property name must be "Id" or "{ClassName}Id") because
+        // the class names are plural or abbreviated differently from the
+        // legacy field names (e.g. class "Transactions" + property
+        // "TransactionID", class "RefreshToken" + property "TokenID").
+        // Every one of these MUST be declared explicitly or EF Core throws
+        // "requires a primary key to be defined" at startup.
+        modelBuilder.Entity<Transactions>().HasKey(x => x.TransactionID);
+        modelBuilder.Entity<HistTransactions>().HasKey(x => x.HistTransactionID);
+        modelBuilder.Entity<RefreshToken>().HasKey(x => x.TokenID);
+
+        // Pending (Maker-Checker) tables all use "PendingID" as their key,
+        // which never matches the "{ClassName}Id" convention either.
+        modelBuilder.Entity<UsersTmp>().HasKey(x => x.PendingID);
+        modelBuilder.Entity<CollectorTMP>().HasKey(x => x.PendingID);
+        modelBuilder.Entity<ClientTmp>().HasKey(x => x.PendingID);
+        modelBuilder.Entity<AccountsTMP>().HasKey(x => x.PendingID);
+        modelBuilder.Entity<ContractTmp>().HasKey(x => x.PendingID);
+        modelBuilder.Entity<CommissionTypeTmp>().HasKey(x => x.PendingID);
+        modelBuilder.Entity<CommissionRangeTmp>().HasKey(x => x.PendingID);
+        modelBuilder.Entity<AgenceTmp>().HasKey(x => x.PendingID);
+        modelBuilder.Entity<IMFTmp>().HasKey(x => x.PendingID);
+        modelBuilder.Entity<TransactionsTMP>().HasKey(x => x.PendingID);
+
         // ---- Enum -> string conversions (readable values in DB, matches CHECK constraints) ----
         modelBuilder.Entity<CommissionRange>()
             .Property(x => x.CalculationMethod)
