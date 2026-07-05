@@ -1,0 +1,77 @@
+namespace DailySavingV.API.Entities;
+
+public enum TransactionType
+{
+    DEPOSIT,
+    WITHDRAWAL,
+    DAILY_COLLECTION,
+    LOAN_PAYMENT,
+    TRANSFER,
+    ACCOUNT_OPENING,
+    ACCOUNT_CLOSING
+}
+
+public class Transactions
+{
+    public long TransactionID { get; set; }
+    public TransactionType TransactionType { get; set; }
+
+    public string AccountID { get; set; } = null!;
+    public Accounts? Account { get; set; }
+    public string ClientID { get; set; } = null!;
+    public Client? Client { get; set; }
+    public string? CollectorID { get; set; }
+
+    // Agency-scoping key
+    public int AgenceID { get; set; }
+    public Agence? Agence { get; set; }
+
+    public decimal Montant { get; set; }
+
+    public int? CommissionTypeID { get; set; }
+    public int? CommissionRangeID { get; set; }
+    public decimal MontantCommission { get; set; }
+
+    public string? ReceiptNumber { get; set; }
+    public DateTime DateTransaction { get; set; } = DateTime.UtcNow;
+    public string Statut { get; set; } = "VALIDATED";   // VALIDATED / REVERSED / CANCELLED
+
+    public string? CreatedBy { get; set; }
+    public string? ValidatedBy { get; set; }
+    public DateTime? ValidationDate { get; set; }
+}
+
+public class HistTransactions
+{
+    public long HistTransactionID { get; set; }
+    public long TransactionID { get; set; }
+    public string Action { get; set; } = null!;   // CREATE / VALIDATE / REVERSE / CANCEL
+    public string? PreviousData { get; set; }     // JSON snapshot
+    public string? NewData { get; set; }          // JSON snapshot
+    public string? ActionBy { get; set; }
+    public DateTime ActionDate { get; set; } = DateTime.UtcNow;
+}
+
+public class HistCalculComis
+{
+    public long HistCalculComisID { get; set; }
+    public long TransactionID { get; set; }
+    public int CommissionTypeID { get; set; }
+    public int CommissionRangeID { get; set; }
+    public decimal MontantTransaction { get; set; }
+    public string CalculationMethod { get; set; } = null!;
+    public decimal TauxAppliqueOuFixe { get; set; }
+    public decimal MontantCommission { get; set; }
+    public DateTime DateCalcul { get; set; } = DateTime.UtcNow;
+}
+
+public class Activite
+{
+    public long ActiviteID { get; set; }
+    public string? CodeUser { get; set; }
+    public string Action { get; set; } = null!;
+    public string? Module { get; set; }
+    public string? Description { get; set; }
+    public string? AdresseIP { get; set; }
+    public DateTime DateAction { get; set; } = DateTime.UtcNow;
+}
