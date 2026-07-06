@@ -10,3 +10,8 @@ public record CreateClientRequest(
     string? Email, string? CompanyName, string ClientType, int? TypeCNIID,
     string? NumeroCNI, string? CollectorID
 );
+
+public record UpdateClientRequest(
+    string? Nom, string? Prenom, string? Sexe, string? PhoneNumber, string? Address,
+    string? Email, string? CompanyName, string? ClientType, string? NumeroCNI, string? CollectorID
+);

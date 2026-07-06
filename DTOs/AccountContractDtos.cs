@@ -7,6 +7,8 @@ public record AccountFullDto(
 
 public record CreateAccountRequest(string ClientID, string? NumCarnet);
 
+public record UpdateAccountRequest(string? NumCarnet, bool? Active);
+
 public record ContractFullDto(
     int ContractID, string ContractNumber, string? ClientID, int? AgenceID,
     DateTime StartDate, DateTime? EndDate, string? ContractType, string? Description, string Statut

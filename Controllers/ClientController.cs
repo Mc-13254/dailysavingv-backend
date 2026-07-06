@@ -80,6 +80,59 @@ public class ClientController : ControllerBase
         return Ok(pending);
     }
 
+    [HttpPut("{id}")]
+    public async Task<ActionResult> Update(string id, UpdateClientRequest request)
+    {
+        var existing = await _db.Clients.FirstOrDefaultAsync(c => c.ClientID == id)
+            ?? throw new KeyNotFoundException("Client not found in your agency.");
+
+        var draft = new ClientTmp
+        {
+            ActionType = PendingActionType.UPDATE,
+            TargetClientID = id,
+            Nom = request.Nom,
+            Prenom = request.Prenom,
+            Sexe = request.Sexe,
+            PhoneNumber = request.PhoneNumber,
+            Address = request.Address,
+            Email = request.Email,
+            CompanyName = request.CompanyName,
+            ClientType = request.ClientType,
+            NumeroCNI = request.NumeroCNI,
+            CollectorID = request.CollectorID,
+            AgenceID = existing.AgenceID,
+            RequestUser = _currentUser.CodeUser!,
+            PreviousData = JsonSerializer.Serialize(existing),
+            NewData = JsonSerializer.Serialize(request)
+        };
+
+        _db.ClientTmps.Add(draft);
+        await _db.SaveChangesAsync();
+
+        return Ok(new { message = "Modification soumise pour validation.", pendingId = draft.PendingID });
+    }
+
+    [HttpDelete("{id}")]
+    public async Task<ActionResult> Delete(string id)
+    {
+        var existing = await _db.Clients.FirstOrDefaultAsync(c => c.ClientID == id)
+            ?? throw new KeyNotFoundException("Client not found in your agency.");
+
+        var draft = new ClientTmp
+        {
+            ActionType = PendingActionType.DELETE,
+            TargetClientID = id,
+            AgenceID = existing.AgenceID,
+            RequestUser = _currentUser.CodeUser!,
+            PreviousData = JsonSerializer.Serialize(existing)
+        };
+
+        _db.ClientTmps.Add(draft);
+        await _db.SaveChangesAsync();
+
+        return Ok(new { message = "Suppression soumise pour validation.", pendingId = draft.PendingID });
+    }
+
     [HttpPost("pending/{pendingId:int}/approve")]
     [Authorize(Policy = "SupervisorOrAdmin")]
     public async Task<ActionResult> Approve(int pendingId)
@@ -116,7 +169,31 @@ public class ClientController : ControllerBase
                 CreatedBy = draft.RequestUser
             });
         }
-        // UPDATE / DELETE follow the identical shape shown in CollectorController.Approve
+        else if (draft.ActionType == PendingActionType.UPDATE && draft.TargetClientID != null)
+        {
+            var existing = await _db.Clients.FirstOrDefaultAsync(c => c.ClientID == draft.TargetClientID)
+                ?? throw new KeyNotFoundException("Target client no longer exists.");
+            if (draft.Nom != null) existing.Nom = draft.Nom;
+            if (draft.Prenom != null) existing.Prenom = draft.Prenom;
+            if (draft.Sexe != null) existing.Sexe = draft.Sexe;
+            if (draft.PhoneNumber != null) existing.PhoneNumber = draft.PhoneNumber;
+            if (draft.Address != null) existing.Address = draft.Address;
+            if (draft.Email != null) existing.Email = draft.Email;
+            if (draft.CompanyName != null) existing.CompanyName = draft.CompanyName;
+            if (draft.ClientType != null) existing.ClientType = draft.ClientType;
+            if (draft.NumeroCNI != null) existing.NumeroCNI = draft.NumeroCNI;
+            if (draft.CollectorID != null) existing.CollectorID = draft.CollectorID;
+        }
+        else if (draft.ActionType == PendingActionType.DELETE && draft.TargetClientID != null)
+        {
+            // Soft-delete: Client is referenced by Accounts/Transactions, so we
+            // deactivate rather than physically remove the row.
+            var existing = await _db.Clients.FirstOrDefaultAsync(c => c.ClientID == draft.TargetClientID)
+                ?? throw new KeyNotFoundException("Target client no longer exists.");
+            var blockedStatusId = await _db.ClientStatuses.Where(s => s.Code == "BLOCKED").Select(s => s.ClientStatusID).FirstOrDefaultAsync();
+            if (blockedStatusId != 0) existing.ClientStatusID = blockedStatusId;
+            existing.ValidationStatus = "BLOCKED";
+        }
 
         draft.PendingStatus = PendingStatusEnum.APPROVED;
         draft.ValidationUser = _currentUser.CodeUser;

@@ -66,6 +66,52 @@ public class IMFController : ControllerBase
         return Ok(pending);
     }
 
+    [HttpPut("{code}")]
+    public async Task<ActionResult> Update(string code, CreateIMFRequest request)
+    {
+        var existing = await _db.IMFs.FirstOrDefaultAsync(i => i.CodeIMF == code)
+            ?? throw new KeyNotFoundException("IMF not found.");
+
+        var draft = new IMFTmp
+        {
+            ActionType = PendingActionType.UPDATE,
+            TargetCodeIMF = code,
+            Libelle = request.Libelle,
+            TauxTaxe = request.TauxTaxe,
+            AssujettiTaxe = request.AssujettiTaxe,
+            SuffixeCompte = request.SuffixeCompte,
+            PrefixeCompte = request.PrefixeCompte,
+            TailleCompte = request.TailleCompte,
+            CalculCommission = request.CalculCommission,
+            RequestUser = _currentUser.CodeUser!,
+            PreviousData = JsonSerializer.Serialize(existing),
+            NewData = JsonSerializer.Serialize(request)
+        };
+
+        _db.IMFTmps.Add(draft);
+        await _db.SaveChangesAsync();
+        return Ok(new { message = "Modification soumise pour validation.", pendingId = draft.PendingID });
+    }
+
+    [HttpDelete("{code}")]
+    public async Task<ActionResult> Delete(string code)
+    {
+        var existing = await _db.IMFs.FirstOrDefaultAsync(i => i.CodeIMF == code)
+            ?? throw new KeyNotFoundException("IMF not found.");
+
+        var draft = new IMFTmp
+        {
+            ActionType = PendingActionType.DELETE,
+            TargetCodeIMF = code,
+            RequestUser = _currentUser.CodeUser!,
+            PreviousData = JsonSerializer.Serialize(existing)
+        };
+
+        _db.IMFTmps.Add(draft);
+        await _db.SaveChangesAsync();
+        return Ok(new { message = "Suppression soumise pour validation.", pendingId = draft.PendingID });
+    }
+
     [HttpPost("pending/{pendingId:int}/approve")]
     public async Task<ActionResult> Approve(int pendingId)
     {
@@ -90,6 +136,24 @@ public class IMFController : ControllerBase
                 CalculCommission = draft.CalculCommission ?? true,
                 CreatedBy = draft.RequestUser
             });
+        }
+        else if (draft.ActionType == PendingActionType.UPDATE && draft.TargetCodeIMF != null)
+        {
+            var existing = await _db.IMFs.FirstOrDefaultAsync(i => i.CodeIMF == draft.TargetCodeIMF)
+                ?? throw new KeyNotFoundException("Target IMF no longer exists.");
+            if (draft.Libelle != null) existing.Libelle = draft.Libelle;
+            if (draft.TauxTaxe.HasValue) existing.TauxTaxe = draft.TauxTaxe.Value;
+            if (draft.AssujettiTaxe.HasValue) existing.AssujettiTaxe = draft.AssujettiTaxe.Value;
+            if (draft.SuffixeCompte != null) existing.SuffixeCompte = draft.SuffixeCompte;
+            if (draft.PrefixeCompte != null) existing.PrefixeCompte = draft.PrefixeCompte;
+            if (draft.TailleCompte.HasValue) existing.TailleCompte = draft.TailleCompte.Value;
+            if (draft.CalculCommission.HasValue) existing.CalculCommission = draft.CalculCommission.Value;
+        }
+        else if (draft.ActionType == PendingActionType.DELETE && draft.TargetCodeIMF != null)
+        {
+            var existing = await _db.IMFs.FirstOrDefaultAsync(i => i.CodeIMF == draft.TargetCodeIMF)
+                ?? throw new KeyNotFoundException("Target IMF no longer exists.");
+            existing.Statut = "INACTIF";
         }
 
         draft.PendingStatus = PendingStatusEnum.APPROVED;

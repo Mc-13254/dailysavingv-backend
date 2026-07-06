@@ -77,6 +77,56 @@ public class ContractController : ControllerBase
         return Ok(pending);
     }
 
+    [HttpPut("{id:int}")]
+    public async Task<ActionResult> Update(int id, CreateContractRequest request)
+    {
+        var existing = await _db.Contracts.FirstOrDefaultAsync(c => c.ContractID == id)
+            ?? throw new KeyNotFoundException("Contract not found.");
+
+        var draft = new ContractTmp
+        {
+            ActionType = PendingActionType.UPDATE,
+            TargetContractID = id,
+            ContractNumber = request.ContractNumber,
+            ClientID = request.ClientID,
+            StartDate = request.StartDate,
+            EndDate = request.EndDate,
+            ContractType = request.ContractType,
+            ContractDetails = request.ContractDetails,
+            Description = request.Description,
+            RenewalTerms = request.RenewalTerms,
+            TerminationClause = request.TerminationClause,
+            AgenceID = existing.AgenceID,
+            RequestUser = _currentUser.CodeUser!,
+            PreviousData = JsonSerializer.Serialize(existing),
+            NewData = JsonSerializer.Serialize(request)
+        };
+
+        _db.ContractTmps.Add(draft);
+        await _db.SaveChangesAsync();
+        return Ok(new { message = "Modification soumise pour validation.", pendingId = draft.PendingID });
+    }
+
+    [HttpDelete("{id:int}")]
+    public async Task<ActionResult> Delete(int id)
+    {
+        var existing = await _db.Contracts.FirstOrDefaultAsync(c => c.ContractID == id)
+            ?? throw new KeyNotFoundException("Contract not found.");
+
+        var draft = new ContractTmp
+        {
+            ActionType = PendingActionType.DELETE,
+            TargetContractID = id,
+            AgenceID = existing.AgenceID,
+            RequestUser = _currentUser.CodeUser!,
+            PreviousData = JsonSerializer.Serialize(existing)
+        };
+
+        _db.ContractTmps.Add(draft);
+        await _db.SaveChangesAsync();
+        return Ok(new { message = "Suppression soumise pour validation.", pendingId = draft.PendingID });
+    }
+
     [HttpPost("pending/{pendingId:int}/approve")]
     [Authorize(Policy = "SupervisorOrAdmin")]
     public async Task<ActionResult> Approve(int pendingId)
@@ -104,6 +154,26 @@ public class ContractController : ControllerBase
                 TerminationClause = draft.TerminationClause,
                 CreatedBy = draft.RequestUser
             });
+        }
+        else if (draft.ActionType == PendingActionType.UPDATE && draft.TargetContractID.HasValue)
+        {
+            var existing = await _db.Contracts.FirstOrDefaultAsync(c => c.ContractID == draft.TargetContractID.Value)
+                ?? throw new KeyNotFoundException("Target contract no longer exists.");
+            if (draft.ContractNumber != null) existing.ContractNumber = draft.ContractNumber;
+            if (draft.ClientID != null) existing.ClientID = draft.ClientID;
+            if (draft.StartDate.HasValue) existing.StartDate = draft.StartDate.Value;
+            if (draft.EndDate.HasValue) existing.EndDate = draft.EndDate;
+            if (draft.ContractType != null) existing.ContractType = draft.ContractType;
+            if (draft.ContractDetails != null) existing.ContractDetails = draft.ContractDetails;
+            if (draft.Description != null) existing.Description = draft.Description;
+            if (draft.RenewalTerms != null) existing.RenewalTerms = draft.RenewalTerms;
+            if (draft.TerminationClause != null) existing.TerminationClause = draft.TerminationClause;
+        }
+        else if (draft.ActionType == PendingActionType.DELETE && draft.TargetContractID.HasValue)
+        {
+            var existing = await _db.Contracts.FirstOrDefaultAsync(c => c.ContractID == draft.TargetContractID.Value)
+                ?? throw new KeyNotFoundException("Target contract no longer exists.");
+            _db.Contracts.Remove(existing);
         }
 
         draft.PendingStatus = PendingStatusEnum.APPROVED;

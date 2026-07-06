@@ -71,6 +71,53 @@ public class AgenceController : ControllerBase
         return Ok(pending);
     }
 
+    [HttpPut("{id:int}")]
+    [Authorize(Policy = "AdminOnly")]
+    public async Task<ActionResult> Update(int id, CreateAgenceRequest request)
+    {
+        var existing = await _db.Agences.FirstOrDefaultAsync(a => a.AgenceID == id)
+            ?? throw new KeyNotFoundException("Agence not found.");
+
+        var draft = new AgenceTmp
+        {
+            ActionType = PendingActionType.UPDATE,
+            TargetAgenceID = id,
+            CodeAgence = request.CodeAgence,
+            Nom = request.Nom,
+            Location = request.Location,
+            ContactInfo = request.ContactInfo,
+            CodeIMF = request.CodeIMF,
+            VilleID = request.VilleID,
+            RequestUser = _currentUser.CodeUser!,
+            PreviousData = JsonSerializer.Serialize(existing),
+            NewData = JsonSerializer.Serialize(request)
+        };
+
+        _db.AgenceTmps.Add(draft);
+        await _db.SaveChangesAsync();
+        return Ok(new { message = "Modification soumise pour validation.", pendingId = draft.PendingID });
+    }
+
+    [HttpDelete("{id:int}")]
+    [Authorize(Policy = "AdminOnly")]
+    public async Task<ActionResult> Delete(int id)
+    {
+        var existing = await _db.Agences.FirstOrDefaultAsync(a => a.AgenceID == id)
+            ?? throw new KeyNotFoundException("Agence not found.");
+
+        var draft = new AgenceTmp
+        {
+            ActionType = PendingActionType.DELETE,
+            TargetAgenceID = id,
+            RequestUser = _currentUser.CodeUser!,
+            PreviousData = JsonSerializer.Serialize(existing)
+        };
+
+        _db.AgenceTmps.Add(draft);
+        await _db.SaveChangesAsync();
+        return Ok(new { message = "Suppression soumise pour validation.", pendingId = draft.PendingID });
+    }
+
     [HttpPost("pending/{pendingId:int}/approve")]
     [Authorize(Policy = "AdminOnly")]
     public async Task<ActionResult> Approve(int pendingId)

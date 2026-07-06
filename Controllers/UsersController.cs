@@ -83,6 +83,56 @@ public class UsersController : ControllerBase
         return Ok(pending);
     }
 
+    [HttpPut("{codeUser}")]
+    [Authorize(Policy = "SupervisorOrAdmin")]
+    public async Task<ActionResult> Update(string codeUser, UpdateUserRequest request)
+    {
+        var existing = await _db.Users.FirstOrDefaultAsync(u => u.CodeUser == codeUser)
+            ?? throw new KeyNotFoundException("User not found in your agency.");
+
+        var draft = new UsersTmp
+        {
+            ActionType = PendingActionType.UPDATE,
+            TargetCodeUser = codeUser,
+            Email = request.Email,
+            Phone = request.Phone,
+            Adresse = request.Adresse,
+            CNI = request.CNI,
+            RoleID = request.RoleID,
+            Statut = request.Statut,
+            PasswordHash = string.IsNullOrWhiteSpace(request.NewPassword) ? null : BCrypt.Net.BCrypt.HashPassword(request.NewPassword),
+            AgenceID = existing.AgenceID,
+            RequestUser = _currentUser.CodeUser!,
+            PreviousData = JsonSerializer.Serialize(new { existing.Email, existing.Phone, existing.RoleID, existing.Statut }),
+            NewData = JsonSerializer.Serialize(new { request.Email, request.Phone, request.RoleID, request.Statut })
+        };
+
+        _db.UsersTmps.Add(draft);
+        await _db.SaveChangesAsync();
+        return Ok(new { message = "Modification soumise pour validation.", pendingId = draft.PendingID });
+    }
+
+    [HttpDelete("{codeUser}")]
+    [Authorize(Policy = "SupervisorOrAdmin")]
+    public async Task<ActionResult> Delete(string codeUser)
+    {
+        var existing = await _db.Users.FirstOrDefaultAsync(u => u.CodeUser == codeUser)
+            ?? throw new KeyNotFoundException("User not found in your agency.");
+
+        var draft = new UsersTmp
+        {
+            ActionType = PendingActionType.DELETE,
+            TargetCodeUser = codeUser,
+            AgenceID = existing.AgenceID,
+            RequestUser = _currentUser.CodeUser!,
+            PreviousData = JsonSerializer.Serialize(new { existing.Username, existing.Email })
+        };
+
+        _db.UsersTmps.Add(draft);
+        await _db.SaveChangesAsync();
+        return Ok(new { message = "Suppression soumise pour validation.", pendingId = draft.PendingID });
+    }
+
     [HttpPost("pending/{pendingId:int}/approve")]
     [Authorize(Policy = "SupervisorOrAdmin")]
     public async Task<ActionResult> Approve(int pendingId)
@@ -113,6 +163,25 @@ public class UsersController : ControllerBase
                 ValidationStatus = "VALIDATED",
                 CreatedBy = draft.RequestUser
             });
+        }
+        else if (draft.ActionType == PendingActionType.UPDATE && draft.TargetCodeUser != null)
+        {
+            var existing = await _db.Users.IgnoreQueryFilters().FirstOrDefaultAsync(u => u.CodeUser == draft.TargetCodeUser)
+                ?? throw new KeyNotFoundException("Target user no longer exists.");
+            if (draft.Email != null) existing.Email = draft.Email;
+            if (draft.Phone != null) existing.Phone = draft.Phone;
+            if (draft.Adresse != null) existing.Adresse = draft.Adresse;
+            if (draft.CNI != null) existing.CNI = draft.CNI;
+            if (draft.RoleID.HasValue) existing.RoleID = draft.RoleID.Value;
+            if (draft.Statut != null) existing.Statut = draft.Statut;
+            if (draft.PasswordHash != null) existing.PasswordHash = draft.PasswordHash;
+        }
+        else if (draft.ActionType == PendingActionType.DELETE && draft.TargetCodeUser != null)
+        {
+            // Soft-delete: Collector.CodeUser references Users, so we deactivate.
+            var existing = await _db.Users.IgnoreQueryFilters().FirstOrDefaultAsync(u => u.CodeUser == draft.TargetCodeUser)
+                ?? throw new KeyNotFoundException("Target user no longer exists.");
+            existing.Statut = "INACTIVE";
         }
 
         draft.PendingStatus = PendingStatusEnum.APPROVED;

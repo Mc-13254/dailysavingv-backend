@@ -72,6 +72,49 @@ public class AccountsController : ControllerBase
         return Ok(pending);
     }
 
+    [HttpPut("{id}")]
+    public async Task<ActionResult> Update(string id, UpdateAccountRequest request)
+    {
+        var existing = await _db.Accounts.FirstOrDefaultAsync(a => a.AccountID == id)
+            ?? throw new KeyNotFoundException("Account not found in your agency.");
+
+        var draft = new AccountsTMP
+        {
+            ActionType = PendingActionType.UPDATE,
+            TargetAccountID = id,
+            NumCarnet = request.NumCarnet,
+            Active = request.Active,
+            AgenceID = existing.AgenceID,
+            RequestUser = _currentUser.CodeUser!,
+            PreviousData = JsonSerializer.Serialize(existing),
+            NewData = JsonSerializer.Serialize(request)
+        };
+
+        _db.AccountsTMPs.Add(draft);
+        await _db.SaveChangesAsync();
+        return Ok(new { message = "Modification soumise pour validation.", pendingId = draft.PendingID });
+    }
+
+    [HttpDelete("{id}")]
+    public async Task<ActionResult> Delete(string id)
+    {
+        var existing = await _db.Accounts.FirstOrDefaultAsync(a => a.AccountID == id)
+            ?? throw new KeyNotFoundException("Account not found in your agency.");
+
+        var draft = new AccountsTMP
+        {
+            ActionType = PendingActionType.DELETE,
+            TargetAccountID = id,
+            AgenceID = existing.AgenceID,
+            RequestUser = _currentUser.CodeUser!,
+            PreviousData = JsonSerializer.Serialize(existing)
+        };
+
+        _db.AccountsTMPs.Add(draft);
+        await _db.SaveChangesAsync();
+        return Ok(new { message = "Suppression soumise pour validation.", pendingId = draft.PendingID });
+    }
+
     [HttpPost("pending/{pendingId:int}/approve")]
     [Authorize(Policy = "SupervisorOrAdmin")]
     public async Task<ActionResult> Approve(int pendingId)
@@ -97,6 +140,20 @@ public class AccountsController : ControllerBase
                 AgenceID = draft.AgenceID!.Value,
                 CreatedBy = draft.RequestUser
             });
+        }
+        else if (draft.ActionType == PendingActionType.UPDATE && draft.TargetAccountID != null)
+        {
+            var existing = await _db.Accounts.FirstOrDefaultAsync(a => a.AccountID == draft.TargetAccountID)
+                ?? throw new KeyNotFoundException("Target account no longer exists.");
+            if (draft.NumCarnet != null) existing.NumCarnet = draft.NumCarnet;
+            if (draft.Active.HasValue) existing.Active = draft.Active.Value;
+        }
+        else if (draft.ActionType == PendingActionType.DELETE && draft.TargetAccountID != null)
+        {
+            // Soft-delete: Transactions reference AccountID, so we deactivate.
+            var existing = await _db.Accounts.FirstOrDefaultAsync(a => a.AccountID == draft.TargetAccountID)
+                ?? throw new KeyNotFoundException("Target account no longer exists.");
+            existing.Active = false;
         }
 
         draft.PendingStatus = PendingStatusEnum.APPROVED;

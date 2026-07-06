@@ -9,3 +9,8 @@ public record CreateUserRequest(
     string Username, string Password, string? Email, string? Phone,
     string? Adresse, string? CNI, int RoleID
 );
+
+public record UpdateUserRequest(
+    string? Email, string? Phone, string? Adresse, string? CNI,
+    int? RoleID, string? Statut, string? NewPassword
+);

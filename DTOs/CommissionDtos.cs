@@ -2,6 +2,8 @@ namespace DailySavingV.API.DTOs;
 
 public record CommissionTypeDto(int CommissionTypeID, string Code, string Name, string? Description, string Statut);
 
+public record CreateCommissionTypeRequest(string Code, string Name, string? Description);
+
 public record CreateCommissionRangeRequest(
     int CommissionTypeID,
     decimal MinAmount,
