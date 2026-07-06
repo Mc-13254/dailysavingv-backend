@@ -117,6 +117,7 @@ public class AppDbContext : DbContext
         modelBuilder.Entity<Language>().HasKey(x => x.LanguageCode);
         modelBuilder.Entity<Language>().ToTable("Language");
         modelBuilder.Entity<TimeZoneRef>().ToTable("TimeZoneRef");
+        modelBuilder.Entity<TimeZoneRef>().HasKey(x => x.TimeZoneID);
         modelBuilder.Entity<Users>().HasKey(x => x.CodeUser);
         modelBuilder.Entity<Collector>().HasKey(x => x.CollectorID);
         modelBuilder.Entity<Client>().HasKey(x => x.ClientID);
