@@ -11,8 +11,38 @@ public class IMF
     public string? PrefixeCompte { get; set; }
     public int TailleCompte { get; set; } = 10;
     public bool CalculCommission { get; set; } = true;
+
+    // General information
+    public string? ShortName { get; set; }
+    public string? RegistrationNumber { get; set; }
+    public string? TaxNumber { get; set; }
+    public string? Description { get; set; }
+    public string? LogoBase64 { get; set; }
+
+    // Contact information
+    public string? PrimaryPhone { get; set; }
+    public string? SecondaryPhone { get; set; }
+    public string? Email { get; set; }
+    public string? Website { get; set; }
+
+    // Location
+    public int? PaysID { get; set; }
+    public Pays? Pays { get; set; }
+    public int? VilleID { get; set; }
+    public Ville? Ville { get; set; }
+    public string? Address { get; set; }
+    public string? PostalCode { get; set; }
+
+    // Business settings
+    public string? CurrencyCode { get; set; }
+    public string? Language { get; set; }
+    public string? Timezone { get; set; }
+
+    // Audit
     public string? CreatedBy { get; set; }
     public DateTime DateCreation { get; set; } = DateTime.UtcNow;
+    public string? UpdatedBy { get; set; }
+    public DateTime? UpdatedDate { get; set; }
 
     public ICollection<Agence> Agences { get; set; } = new List<Agence>();
 }

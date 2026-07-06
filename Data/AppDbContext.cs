@@ -219,6 +219,16 @@ public class AppDbContext : DbContext
             .HasForeignKey(x => x.CommissionTypeID)
             .IsRequired();
 
+        modelBuilder.Entity<IMF>()
+            .HasOne(x => x.Pays).WithMany()
+            .HasForeignKey(x => x.PaysID)
+            .IsRequired(false);
+
+        modelBuilder.Entity<IMF>()
+            .HasOne(x => x.Ville).WithMany()
+            .HasForeignKey(x => x.VilleID)
+            .IsRequired(false);
+
         // ---- Enum -> string conversions (readable values in DB, matches CHECK constraints) ----
         modelBuilder.Entity<CommissionRange>()
             .Property(x => x.CalculationMethod)

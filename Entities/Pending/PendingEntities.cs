@@ -141,6 +141,23 @@ public class IMFTmp : PendingBase
     public string? PrefixeCompte { get; set; }
     public int? TailleCompte { get; set; }
     public bool? CalculCommission { get; set; }
+
+    public string? ShortName { get; set; }
+    public string? RegistrationNumber { get; set; }
+    public string? TaxNumber { get; set; }
+    public string? Description { get; set; }
+    public string? LogoBase64 { get; set; }
+    public string? PrimaryPhone { get; set; }
+    public string? SecondaryPhone { get; set; }
+    public string? Email { get; set; }
+    public string? Website { get; set; }
+    public int? PaysID { get; set; }
+    public int? VilleID { get; set; }
+    public string? Address { get; set; }
+    public string? PostalCode { get; set; }
+    public string? CurrencyCode { get; set; }
+    public string? Language { get; set; }
+    public string? Timezone { get; set; }
 }
 
 public class TransactionsTMP : PendingBase
