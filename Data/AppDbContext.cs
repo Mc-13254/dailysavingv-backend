@@ -71,6 +71,42 @@ public class AppDbContext : DbContext
     {
         base.OnModelCreating(modelBuilder);
 
+        // ---- Table name mappings ----
+        // EF Core defaults to using the DbSet property name (often pluralized,
+        // e.g. "Roles") as the table name. The SQL script actually created most
+        // tables using their singular business-entity name (e.g. "Role"),
+        // which caused "Invalid object name 'Roles'" errors at runtime.
+        // Every mismatch below is mapped explicitly to the real table name.
+        modelBuilder.Entity<Region>().ToTable("Region");
+        modelBuilder.Entity<Ville>().ToTable("Ville");
+        modelBuilder.Entity<TypeCNI>().ToTable("TypeCNI");
+        modelBuilder.Entity<ClientStatus>().ToTable("ClientStatus");
+        modelBuilder.Entity<ZoneCollecte>().ToTable("ZoneCollecte");
+        modelBuilder.Entity<IMF>().ToTable("IMF");
+        modelBuilder.Entity<ConfigSyst>().ToTable("ConfigSyst");
+        modelBuilder.Entity<Agence>().ToTable("Agence");
+        modelBuilder.Entity<Role>().ToTable("Role");
+        modelBuilder.Entity<Fonctionnalite>().ToTable("Fonctionnalite");
+        modelBuilder.Entity<Habilitation>().ToTable("Habilitation");
+        modelBuilder.Entity<Habiliter>().ToTable("Habiliter");
+        modelBuilder.Entity<RoleFonctionnalite>().ToTable("RoleFonctionnalite");
+        modelBuilder.Entity<Collector>().ToTable("Collector");
+        modelBuilder.Entity<Client>().ToTable("Client");
+        modelBuilder.Entity<Contract>().ToTable("Contract");
+        modelBuilder.Entity<CommissionType>().ToTable("CommissionType");
+        modelBuilder.Entity<CommissionRange>().ToTable("CommissionRange");
+        modelBuilder.Entity<Activite>().ToTable("Activite");
+        modelBuilder.Entity<UsersTmp>().ToTable("UsersTmp");
+        modelBuilder.Entity<CollectorTMP>().ToTable("CollectorTMP");
+        modelBuilder.Entity<ClientTmp>().ToTable("ClientTmp");
+        modelBuilder.Entity<AccountsTMP>().ToTable("AccountsTMP");
+        modelBuilder.Entity<ContractTmp>().ToTable("ContractTmp");
+        modelBuilder.Entity<CommissionTypeTmp>().ToTable("CommissionTypeTmp");
+        modelBuilder.Entity<CommissionRangeTmp>().ToTable("CommissionRangeTmp");
+        modelBuilder.Entity<AgenceTmp>().ToTable("AgenceTmp");
+        modelBuilder.Entity<IMFTmp>().ToTable("IMFTmp");
+        modelBuilder.Entity<TransactionsTMP>().ToTable("TransactionsTMP");
+
         // ---- Keys ----
         modelBuilder.Entity<IMF>().HasKey(x => x.CodeIMF);
         modelBuilder.Entity<Users>().HasKey(x => x.CodeUser);
