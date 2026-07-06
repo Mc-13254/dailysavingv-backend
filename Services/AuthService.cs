@@ -62,7 +62,7 @@ public class AuthService : IAuthService
         await _db.SaveChangesAsync();
 
         return new LoginResponse(
-            user.CodeUser, user.Username, user.Role!.Code, user.AgenceID, user.Agence?.Nom,
+            user.CodeUser, user.Username, user.Role!.Code, user.AgenceID, user.Agence?.Nom, user.Agence?.CodeAgence,
             accessToken, refreshToken, expiresAt
         );
     }
@@ -100,7 +100,7 @@ public class AuthService : IAuthService
         await _db.SaveChangesAsync();
 
         return new LoginResponse(
-            user.CodeUser, user.Username, user.Role!.Code, user.AgenceID, user.Agence?.Nom,
+            user.CodeUser, user.Username, user.Role!.Code, user.AgenceID, user.Agence?.Nom, user.Agence?.CodeAgence,
             accessToken, newRefreshToken, expiresAt
         );
     }

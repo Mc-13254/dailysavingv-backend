@@ -8,6 +8,7 @@ public record LoginResponse(
     string RoleCode,
     int? AgenceID,
     string? AgenceNom,
+    string? AgenceCode,
     string AccessToken,
     string RefreshToken,
     DateTime AccessTokenExpiresAt
