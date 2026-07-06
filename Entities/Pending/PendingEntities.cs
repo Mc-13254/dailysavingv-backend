@@ -25,6 +25,7 @@ public class UsersTmp : PendingBase
 {
     public string? TargetCodeUser { get; set; }
     public string? Username { get; set; }
+    public string? PasswordHash { get; set; }
     public string? Email { get; set; }
     public string? Phone { get; set; }
     public string? Adresse { get; set; }
