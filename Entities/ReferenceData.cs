@@ -61,3 +61,27 @@ public class ZoneCollecte
     public string? UserCreate { get; set; }
     public DateTime CreateDate { get; set; } = DateTime.UtcNow;
 }
+
+public class Currency
+{
+    public string CurrencyCode { get; set; } = null!;
+    public string Nom { get; set; } = null!;
+    public string? Symbole { get; set; }
+    public bool Statut { get; set; } = true;
+}
+
+public class Language
+{
+    public string LanguageCode { get; set; } = null!;
+    public string Nom { get; set; } = null!;
+    public bool Statut { get; set; } = true;
+}
+
+public class TimeZoneRef
+{
+    public int TimeZoneID { get; set; }
+    public string Code { get; set; } = null!;
+    public string Label { get; set; } = null!;
+    public string? UtcOffset { get; set; }
+    public bool Statut { get; set; } = true;
+}

@@ -22,6 +22,9 @@ public class AppDbContext : DbContext
     public DbSet<TypeCNI> TypeCNIs => Set<TypeCNI>();
     public DbSet<ClientStatus> ClientStatuses => Set<ClientStatus>();
     public DbSet<ZoneCollecte> ZoneCollectes => Set<ZoneCollecte>();
+    public DbSet<Currency> Currencies => Set<Currency>();
+    public DbSet<Language> Languages => Set<Language>();
+    public DbSet<TimeZoneRef> TimeZones => Set<TimeZoneRef>();
 
     // Institution
     public DbSet<IMF> IMFs => Set<IMF>();
@@ -109,6 +112,11 @@ public class AppDbContext : DbContext
 
         // ---- Keys ----
         modelBuilder.Entity<IMF>().HasKey(x => x.CodeIMF);
+        modelBuilder.Entity<Currency>().HasKey(x => x.CurrencyCode);
+        modelBuilder.Entity<Currency>().ToTable("Currency");
+        modelBuilder.Entity<Language>().HasKey(x => x.LanguageCode);
+        modelBuilder.Entity<Language>().ToTable("Language");
+        modelBuilder.Entity<TimeZoneRef>().ToTable("TimeZoneRef");
         modelBuilder.Entity<Users>().HasKey(x => x.CodeUser);
         modelBuilder.Entity<Collector>().HasKey(x => x.CollectorID);
         modelBuilder.Entity<Client>().HasKey(x => x.ClientID);
