@@ -140,6 +140,85 @@ public class AppDbContext : DbContext
         modelBuilder.Entity<IMFTmp>().HasKey(x => x.PendingID);
         modelBuilder.Entity<TransactionsTMP>().HasKey(x => x.PendingID);
 
+        // =====================================================================
+        // RELATIONSHIPS: explicit FK configuration.
+        // Without this, EF Core's convention sometimes fails to associate an
+        // existing scalar FK property (e.g. Agence.CodeIMF) with its navigation
+        // property (Agence.IMF) - especially when the FK is a string business
+        // key rather than a surrogate int, or when the navigation is nullable
+        // but the scalar FK is not. When that happens, EF silently creates an
+        // extra *shadow* column (e.g. "IMFCodeIMF") instead of reusing the real
+        // one, causing "Invalid column name" at runtime. Configuring every
+        // relationship explicitly removes all ambiguity.
+        // =====================================================================
+        modelBuilder.Entity<Region>()
+            .HasOne(x => x.Pays).WithMany(x => x.Regions)
+            .HasForeignKey(x => x.PaysID);
+
+        modelBuilder.Entity<Ville>()
+            .HasOne(x => x.Region).WithMany(x => x.Villes)
+            .HasForeignKey(x => x.RegionID);
+
+        modelBuilder.Entity<Agence>()
+            .HasOne(x => x.IMF).WithMany(x => x.Agences)
+            .HasForeignKey(x => x.CodeIMF)
+            .IsRequired();
+
+        modelBuilder.Entity<Users>()
+            .HasOne(x => x.Role).WithMany()
+            .HasForeignKey(x => x.RoleID)
+            .IsRequired();
+
+        modelBuilder.Entity<Users>()
+            .HasOne(x => x.Agence).WithMany()
+            .HasForeignKey(x => x.AgenceID)
+            .IsRequired(false);
+
+        modelBuilder.Entity<Collector>()
+            .HasOne(x => x.Users).WithMany()
+            .HasForeignKey(x => x.CodeUser)
+            .IsRequired();
+
+        modelBuilder.Entity<Collector>()
+            .HasOne(x => x.Agence).WithMany()
+            .HasForeignKey(x => x.AgenceID)
+            .IsRequired();
+
+        modelBuilder.Entity<Client>()
+            .HasOne(x => x.Agence).WithMany()
+            .HasForeignKey(x => x.AgenceID)
+            .IsRequired();
+
+        modelBuilder.Entity<Accounts>()
+            .HasOne(x => x.Client).WithMany()
+            .HasForeignKey(x => x.ClientID)
+            .IsRequired();
+
+        modelBuilder.Entity<Accounts>()
+            .HasOne(x => x.Agence).WithMany()
+            .HasForeignKey(x => x.AgenceID)
+            .IsRequired();
+
+        modelBuilder.Entity<Transactions>()
+            .HasOne(x => x.Account).WithMany()
+            .HasForeignKey(x => x.AccountID)
+            .IsRequired();
+
+        modelBuilder.Entity<Transactions>()
+            .HasOne(x => x.Client).WithMany()
+            .HasForeignKey(x => x.ClientID)
+            .IsRequired();
+
+        modelBuilder.Entity<Transactions>()
+            .HasOne(x => x.Agence).WithMany()
+            .HasForeignKey(x => x.AgenceID)
+            .IsRequired();
+
+        modelBuilder.Entity<CommissionRange>()
+            .HasOne(x => x.CommissionType).WithMany(x => x.Ranges)
+            .HasForeignKey(x => x.CommissionTypeID)
+            .IsRequired();
+
         // ---- Enum -> string conversions (readable values in DB, matches CHECK constraints) ----
         modelBuilder.Entity<CommissionRange>()
             .Property(x => x.CalculationMethod)
@@ -157,6 +236,19 @@ public class AppDbContext : DbContext
         modelBuilder.Entity<Accounts>().Property(x => x.Balance).HasColumnType("decimal(18,2)");
         modelBuilder.Entity<Transactions>().Property(x => x.Montant).HasColumnType("decimal(18,2)");
         modelBuilder.Entity<Transactions>().Property(x => x.MontantCommission).HasColumnType("decimal(18,2)");
+        modelBuilder.Entity<Collector>().Property(x => x.Plafond).HasColumnType("decimal(18,2)");
+        modelBuilder.Entity<IMF>().Property(x => x.TauxTaxe).HasColumnType("decimal(5,2)");
+        modelBuilder.Entity<HistCalculComis>().Property(x => x.MontantCommission).HasColumnType("decimal(18,2)");
+        modelBuilder.Entity<HistCalculComis>().Property(x => x.MontantTransaction).HasColumnType("decimal(18,2)");
+        modelBuilder.Entity<HistCalculComis>().Property(x => x.TauxAppliqueOuFixe).HasColumnType("decimal(18,2)");
+        modelBuilder.Entity<AccountsTMP>().Property(x => x.Balance).HasColumnType("decimal(18,2)");
+        modelBuilder.Entity<CollectorTMP>().Property(x => x.Plafond).HasColumnType("decimal(18,2)");
+        modelBuilder.Entity<CommissionRangeTmp>().Property(x => x.FixedAmount).HasColumnType("decimal(18,2)");
+        modelBuilder.Entity<CommissionRangeTmp>().Property(x => x.MaxAmount).HasColumnType("decimal(18,2)");
+        modelBuilder.Entity<CommissionRangeTmp>().Property(x => x.MinAmount).HasColumnType("decimal(18,2)");
+        modelBuilder.Entity<CommissionRangeTmp>().Property(x => x.PercentageRate).HasColumnType("decimal(5,2)");
+        modelBuilder.Entity<IMFTmp>().Property(x => x.TauxTaxe).HasColumnType("decimal(5,2)");
+        modelBuilder.Entity<TransactionsTMP>().Property(x => x.Montant).HasColumnType("decimal(18,2)");
 
         // =====================================================================
         // AGENCY SCOPING: global query filters.
