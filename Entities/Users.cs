@@ -16,7 +16,19 @@ public class Users
     // Personal information
     public string? FirstName { get; set; }
     public string? LastName { get; set; }
+    public string? Gender { get; set; }
+    public DateTime? DateOfBirth { get; set; }
+    public string? Nationality { get; set; }
+    public string? MaritalStatus { get; set; }
     public string? TypeUser { get; set; } // Administrator/Manager/Cashier/Collector/Supervisor/Auditor
+    public string? Department { get; set; }
+    public string? JobTitle { get; set; }
+
+    // Location (personal address — distinct from the agency's own address)
+    public int? PaysID { get; set; }
+    public Pays? Pays { get; set; }
+    public int? VilleID { get; set; }
+    public Ville? Ville { get; set; }
 
     // Nullable only for HQ/Admin users who are not tied to a single agency
     public int? AgenceID { get; set; }

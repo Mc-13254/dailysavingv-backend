@@ -28,7 +28,9 @@ public class UsersController : ControllerBase
     private static UserFullDto ToDto(Entities.Users u) => new(
         u.CodeUser, u.Username, u.Email, u.Phone, u.Adresse, u.CNI, u.Photo,
         u.RoleID, u.Role?.Code ?? "", u.Role?.Libelle,
-        u.FirstName, u.LastName, u.TypeUser,
+        u.FirstName, u.LastName, u.Gender, u.DateOfBirth,
+        u.Nationality, u.MaritalStatus, u.TypeUser, u.Department, u.JobTitle,
+        u.PaysID, u.Pays?.Nom, u.VilleID, u.Ville?.Nom,
         u.AgenceID, u.Agence?.Nom, u.Agence?.CodeIMF,
         u.DebitMax, u.CreditMax, u.ValidationMax, u.PlafondCollect, u.Caution,
         u.Signe, u.ValidationStatus, u.Statut,
@@ -42,7 +44,9 @@ public class UsersController : ControllerBase
     [HttpGet]
     public async Task<ActionResult<IEnumerable<UserFullDto>>> GetAll()
     {
-        var result = await _db.Users.Include(u => u.Role).Include(u => u.Agence).ToListAsync();
+        var result = await _db.Users.Include(u => u.Role).Include(u => u.Agence)
+            .Include(u => u.Pays).Include(u => u.Ville)
+            .ToListAsync();
         return Ok(result.Select(ToDto));
     }
 
@@ -83,7 +87,15 @@ public class UsersController : ControllerBase
             AgenceID = request.AgenceID ?? _currentUser.AgenceID,
             FirstName = request.FirstName,
             LastName = request.LastName,
+            Gender = request.Gender,
+            DateOfBirth = request.DateOfBirth,
+            Nationality = request.Nationality,
+            MaritalStatus = request.MaritalStatus,
             TypeUser = request.TypeUser,
+            Department = request.Department,
+            JobTitle = request.JobTitle,
+            PaysID = request.PaysID,
+            VilleID = request.VilleID,
             DebitMax = request.DebitMax,
             CreditMax = request.CreditMax,
             ValidationMax = request.ValidationMax,
@@ -146,7 +158,15 @@ public class UsersController : ControllerBase
             AgenceID = request.AgenceID ?? existing.AgenceID,
             FirstName = request.FirstName,
             LastName = request.LastName,
+            Gender = request.Gender,
+            DateOfBirth = request.DateOfBirth,
+            Nationality = request.Nationality,
+            MaritalStatus = request.MaritalStatus,
             TypeUser = request.TypeUser,
+            Department = request.Department,
+            JobTitle = request.JobTitle,
+            PaysID = request.PaysID,
+            VilleID = request.VilleID,
             DebitMax = request.DebitMax,
             CreditMax = request.CreditMax,
             ValidationMax = request.ValidationMax,
@@ -219,7 +239,15 @@ public class UsersController : ControllerBase
                 AgenceID = draft.AgenceID,
                 FirstName = draft.FirstName,
                 LastName = draft.LastName,
+                Gender = draft.Gender,
+                DateOfBirth = draft.DateOfBirth,
+                Nationality = draft.Nationality,
+                MaritalStatus = draft.MaritalStatus,
                 TypeUser = draft.TypeUser,
+                Department = draft.Department,
+                JobTitle = draft.JobTitle,
+                PaysID = draft.PaysID,
+                VilleID = draft.VilleID,
                 DebitMax = draft.DebitMax,
                 CreditMax = draft.CreditMax,
                 ValidationMax = draft.ValidationMax,
@@ -246,7 +274,15 @@ public class UsersController : ControllerBase
             if (draft.AgenceID.HasValue) existing.AgenceID = draft.AgenceID;
             if (draft.FirstName != null) existing.FirstName = draft.FirstName;
             if (draft.LastName != null) existing.LastName = draft.LastName;
+            if (draft.Gender != null) existing.Gender = draft.Gender;
+            if (draft.DateOfBirth.HasValue) existing.DateOfBirth = draft.DateOfBirth;
+            if (draft.Nationality != null) existing.Nationality = draft.Nationality;
+            if (draft.MaritalStatus != null) existing.MaritalStatus = draft.MaritalStatus;
             if (draft.TypeUser != null) existing.TypeUser = draft.TypeUser;
+            if (draft.Department != null) existing.Department = draft.Department;
+            if (draft.JobTitle != null) existing.JobTitle = draft.JobTitle;
+            if (draft.PaysID.HasValue) existing.PaysID = draft.PaysID;
+            if (draft.VilleID.HasValue) existing.VilleID = draft.VilleID;
             if (draft.DebitMax.HasValue) existing.DebitMax = draft.DebitMax;
             if (draft.CreditMax.HasValue) existing.CreditMax = draft.CreditMax;
             if (draft.ValidationMax.HasValue) existing.ValidationMax = draft.ValidationMax;

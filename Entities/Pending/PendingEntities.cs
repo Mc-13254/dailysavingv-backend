@@ -36,7 +36,15 @@ public class UsersTmp : PendingBase
     public string? Statut { get; set; }
     public string? FirstName { get; set; }
     public string? LastName { get; set; }
+    public string? Gender { get; set; }
+    public DateTime? DateOfBirth { get; set; }
+    public string? Nationality { get; set; }
+    public string? MaritalStatus { get; set; }
     public string? TypeUser { get; set; }
+    public string? Department { get; set; }
+    public string? JobTitle { get; set; }
+    public int? PaysID { get; set; }
+    public int? VilleID { get; set; }
     public decimal? DebitMax { get; set; }
     public decimal? CreditMax { get; set; }
     public decimal? ValidationMax { get; set; }
