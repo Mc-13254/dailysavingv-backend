@@ -168,6 +168,18 @@ public class RoleTmp : PendingBase
     public bool? Statut { get; set; }
 }
 
+public class DepartmentTmp : PendingBase
+{
+    public int? TargetDepartmentID { get; set; }
+    public string? DepartmentName { get; set; }
+    public string? ShortName { get; set; }
+    public string? Description { get; set; }
+    public string? CodeIMF { get; set; }
+    public int? AgenceID { get; set; }
+    public string? ManagerId { get; set; }
+    public string? Statut { get; set; }
+}
+
 public class IMFTmp : PendingBase
 {
     public string? TargetCodeIMF { get; set; }

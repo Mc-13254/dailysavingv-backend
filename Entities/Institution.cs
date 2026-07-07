@@ -92,3 +92,23 @@ public class Agence
     public string? UpdatedBy { get; set; }
     public DateTime? UpdatedDate { get; set; }
 }
+
+public class Department
+{
+    public int DepartmentID { get; set; }
+    public string DepartmentCode { get; set; } = null!;
+    public string DepartmentName { get; set; } = null!;
+    public string? ShortName { get; set; }
+    public string? Description { get; set; }
+    public string CodeIMF { get; set; } = null!;
+    public IMF? IMF { get; set; }
+    public int AgenceID { get; set; }
+    public Agence? Agence { get; set; }
+    public string? ManagerId { get; set; }
+    public Users? Manager { get; set; }
+    public string Statut { get; set; } = "ACTIVE";
+    public string? CreatedBy { get; set; }
+    public DateTime CreatedDate { get; set; } = DateTime.UtcNow;
+    public string? UpdatedBy { get; set; }
+    public DateTime? UpdatedDate { get; set; }
+}

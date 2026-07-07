@@ -30,6 +30,7 @@ public class AppDbContext : DbContext
     public DbSet<IMF> IMFs => Set<IMF>();
     public DbSet<ConfigSyst> ConfigSysts => Set<ConfigSyst>();
     public DbSet<Agence> Agences => Set<Agence>();
+    public DbSet<Department> Departments => Set<Department>();
 
     // RBAC
     public DbSet<Role> Roles => Set<Role>();
@@ -68,6 +69,7 @@ public class AppDbContext : DbContext
     public DbSet<CommissionRangeTmp> CommissionRangeTmps => Set<CommissionRangeTmp>();
     public DbSet<AgenceTmp> AgenceTmps => Set<AgenceTmp>();
     public DbSet<RoleTmp> RoleTmps => Set<RoleTmp>();
+    public DbSet<DepartmentTmp> DepartmentTmps => Set<DepartmentTmp>();
     public DbSet<IMFTmp> IMFTmps => Set<IMFTmp>();
     public DbSet<TransactionsTMP> TransactionsTMPs => Set<TransactionsTMP>();
 
@@ -109,6 +111,8 @@ public class AppDbContext : DbContext
         modelBuilder.Entity<CommissionRangeTmp>().ToTable("CommissionRangeTmp");
         modelBuilder.Entity<AgenceTmp>().ToTable("AgenceTmp");
         modelBuilder.Entity<RoleTmp>().ToTable("RoleTmp");
+        modelBuilder.Entity<Department>().ToTable("Department");
+        modelBuilder.Entity<DepartmentTmp>().ToTable("DepartmentTmp");
         modelBuilder.Entity<IMFTmp>().ToTable("IMFTmp");
         modelBuilder.Entity<TransactionsTMP>().ToTable("TransactionsTMP");
 
@@ -149,6 +153,7 @@ public class AppDbContext : DbContext
         modelBuilder.Entity<CommissionRangeTmp>().HasKey(x => x.PendingID);
         modelBuilder.Entity<AgenceTmp>().HasKey(x => x.PendingID);
         modelBuilder.Entity<RoleTmp>().HasKey(x => x.PendingID);
+        modelBuilder.Entity<DepartmentTmp>().HasKey(x => x.PendingID);
         modelBuilder.Entity<IMFTmp>().HasKey(x => x.PendingID);
         modelBuilder.Entity<TransactionsTMP>().HasKey(x => x.PendingID);
 
@@ -259,6 +264,26 @@ public class AppDbContext : DbContext
         modelBuilder.Entity<Users>()
             .HasOne(x => x.Ville).WithMany()
             .HasForeignKey(x => x.VilleID)
+            .IsRequired(false);
+
+        modelBuilder.Entity<Department>()
+            .HasOne(x => x.IMF).WithMany()
+            .HasForeignKey(x => x.CodeIMF)
+            .IsRequired();
+
+        modelBuilder.Entity<Department>()
+            .HasOne(x => x.Agence).WithMany()
+            .HasForeignKey(x => x.AgenceID)
+            .IsRequired();
+
+        modelBuilder.Entity<Department>()
+            .HasOne(x => x.Manager).WithMany()
+            .HasForeignKey(x => x.ManagerId)
+            .IsRequired(false);
+
+        modelBuilder.Entity<Users>()
+            .HasOne(x => x.Department).WithMany()
+            .HasForeignKey(x => x.DepartmentID)
             .IsRequired(false);
 
         // EF Core stores enums as integers by default. The *Tmp (Pending)

@@ -33,6 +33,8 @@ public class Users
     // Nullable only for HQ/Admin users who are not tied to a single agency
     public int? AgenceID { get; set; }
     public Agence? Agence { get; set; }
+    public int? DepartmentID { get; set; }
+    public Department? Department { get; set; }
 
     // Financial settings
     public decimal? DebitMax { get; set; }
