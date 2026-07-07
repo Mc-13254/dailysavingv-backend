@@ -281,10 +281,10 @@ public class AppDbContext : DbContext
             .HasForeignKey(x => x.ManagerId)
             .IsRequired(false);
 
-        modelBuilder.Entity<Users>()
-            .HasOne(x => x.Department).WithMany()
-            .HasForeignKey(x => x.DepartmentID)
-            .IsRequired(false);
+       modelBuilder.Entity<Users>()
+    .HasOne(x => x.DepartmentRef).WithMany()
+    .HasForeignKey(x => x.DepartmentID)
+    .IsRequired(false);
 
         // EF Core stores enums as integers by default. The *Tmp (Pending)
         // tables' ActionType/PendingStatus columns are NVARCHAR with a CHECK
