@@ -32,6 +32,7 @@ public class AppDbContext : DbContext
     public DbSet<Agence> Agences => Set<Agence>();
     public DbSet<Department> Departments => Set<Department>();
     public DbSet<ContractType> ContractTypes => Set<ContractType>();
+    public DbSet<NumberingParameter> NumberingParameters => Set<NumberingParameter>();
 
     // RBAC
     public DbSet<Role> Roles => Set<Role>();
@@ -120,6 +121,7 @@ public class AppDbContext : DbContext
         modelBuilder.Entity<RolePermission>().ToTable("RolePermission");
         modelBuilder.Entity<DepartmentTmp>().ToTable("DepartmentTmp");
         modelBuilder.Entity<ContractType>().ToTable("ContractType");
+        modelBuilder.Entity<NumberingParameter>().ToTable("NumberingParameter");
         modelBuilder.Entity<ContractTypeTmp>().ToTable("ContractTypeTmp");
         modelBuilder.Entity<IMFTmp>().ToTable("IMFTmp");
         modelBuilder.Entity<TransactionsTMP>().ToTable("TransactionsTMP");
@@ -244,9 +246,6 @@ public class AppDbContext : DbContext
             .HasOne(x => x.CommissionType).WithMany(x => x.Ranges)
             .HasForeignKey(x => x.CommissionTypeID)
             .IsRequired();
-            // SQL Server forbids EF Core's OUTPUT clause on tables with triggers
-// (TRG_CommissionRange_NoOverlap) — disable it for this entity.
-modelBuilder.Entity<CommissionRange>().ToTable(tb => tb.UseSqlOutputClause(false));
 
         // SQL Server forbids EF Core's OUTPUT clause on tables with triggers
         // (TRG_CommissionRange_NoOverlap) — disable it for this entity.

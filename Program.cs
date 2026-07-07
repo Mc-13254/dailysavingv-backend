@@ -44,6 +44,7 @@ builder.Services.AddScoped<ICurrentUserService, CurrentUserService>();
 builder.Services.AddScoped<IAuthService, AuthService>();
 builder.Services.AddScoped<ICommissionService, CommissionService>();
 builder.Services.AddScoped<ITransactionService, TransactionService>();
+builder.Services.AddScoped<DailySavingV.API.Services.NumberingService>();
 
 // ---- JWT Authentication ----
 var jwtKey = builder.Configuration["Jwt:Key"]!;

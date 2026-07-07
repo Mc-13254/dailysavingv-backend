@@ -115,3 +115,33 @@ public class ContractType
     public string? UpdatedBy { get; set; }
     public DateTime? UpdatedDate { get; set; }
 }
+
+public class NumberingParameter
+{
+    public int NumberingParameterID { get; set; }
+    public string EntityName { get; set; } = null!;   // Agency/User/Collector/Client/...
+    public string Prefix { get; set; } = null!;
+    public string? Suffix { get; set; }
+    public string? Separator { get; set; }            // "", "-", "/", ".", "_"
+    public long CurrentNumber { get; set; }
+    public long StartingNumber { get; set; } = 1;
+    public int NumberLength { get; set; } = 6;
+    public string PaddingCharacter { get; set; } = "0";
+    public bool AllowReset { get; set; }
+    public string? ResetFrequency { get; set; }        // Never/Daily/Monthly/Yearly
+    public DateTime? NextResetDate { get; set; }
+    public bool AutoIncrement { get; set; } = true;
+    public int IncrementValue { get; set; } = 1;
+    public string Statut { get; set; } = "ACTIVE";
+    public string? CreatedBy { get; set; }
+    public DateTime CreatedDate { get; set; } = DateTime.UtcNow;
+    public string? UpdatedBy { get; set; }
+    public DateTime? UpdatedDate { get; set; }
+
+    public string BuildPreview(long? number = null)
+    {
+        var n = (number ?? (CurrentNumber == 0 ? StartingNumber : CurrentNumber)).ToString().PadLeft(NumberLength, PaddingCharacter.Length == 1 ? PaddingCharacter[0] : '0');
+        var sep = Separator ?? "";
+        return $"{Prefix}{sep}{n}{(string.IsNullOrEmpty(Suffix) ? "" : sep + Suffix)}";
+    }
+}
