@@ -6,16 +6,21 @@ public record CreateCommissionTypeRequest(string Code, string Name, string? Desc
 
 public record CreateCommissionRangeRequest(
     int CommissionTypeID,
-    decimal MinAmount,
-    decimal MaxAmount,
+    string? Description,
+    decimal Inf,
+    decimal Sup,
     string CalculationMethod,   // "FIXED" or "PERCENTAGE"
-    decimal? FixedAmount,
-    decimal? PercentageRate,
-    string Currency
+    decimal? Fixe,
+    decimal? TAUX,
+    decimal? Minimum,
+    decimal? Maximum,
+    string CodeU
 );
 
 public record CommissionRangeDto(
-    int CommissionRangeID, int CommissionTypeID, string CommissionTypeName,
-    decimal MinAmount, decimal MaxAmount, string CalculationMethod,
-    decimal? FixedAmount, decimal? PercentageRate, string Currency, string Statut
+    int CommissionRangeID, string? Description, int CommissionTypeID, string CommissionTypeName, string CodeComis,
+    decimal Inf, decimal Sup, string CalculationMethod,
+    decimal? Fixe, decimal? TAUX, decimal? Minimum, decimal? Maximum, string CodeU, string Statut,
+    string? UserCreate, DateTime CreateDate, string? UserVal, DateTime? DateValidation,
+    string? LastUserModif, DateTime? DateModification
 );

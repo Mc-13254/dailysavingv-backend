@@ -126,13 +126,16 @@ public class CommissionTypeTmp : PendingBase
 public class CommissionRangeTmp : PendingBase
 {
     public int? TargetCommissionRangeID { get; set; }
+    public string? Description { get; set; }
     public int? CommissionTypeID { get; set; }
-    public decimal? MinAmount { get; set; }
-    public decimal? MaxAmount { get; set; }
+    public string? CodeU { get; set; }
+    public decimal? Inf { get; set; }
+    public decimal? Sup { get; set; }
     public string? CalculationMethod { get; set; }
-    public decimal? FixedAmount { get; set; }
-    public decimal? PercentageRate { get; set; }
-    public string? Currency { get; set; }
+    public decimal? Fixe { get; set; }
+    public decimal? TAUX { get; set; }
+    public decimal? Minimum { get; set; }
+    public decimal? Maximum { get; set; }
 }
 
 public class AgenceTmp : PendingBase

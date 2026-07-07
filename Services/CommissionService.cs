@@ -50,8 +50,8 @@ public class CommissionService : ICommissionService
         var range = await _db.CommissionRanges
             .Where(r => r.CommissionTypeID == commissionType.CommissionTypeID
                         && r.Statut == "ACTIVE"
-                        && montant >= r.MinAmount
-                        && montant <= r.MaxAmount)
+                        && montant >= r.Inf
+                        && montant <= r.Sup)
             .FirstOrDefaultAsync();
 
         if (range == null)
@@ -64,14 +64,20 @@ public class CommissionService : ICommissionService
 
         if (range.CalculationMethod == CalculationMethod.FIXED)
         {
-            montantCommission = range.FixedAmount!.Value;
-            appliedValue = range.FixedAmount!.Value;
+            montantCommission = range.Fixe!.Value;
+            appliedValue = range.Fixe!.Value;
         }
         else // PERCENTAGE
         {
-            appliedValue = range.PercentageRate!.Value;
-            montantCommission = Math.Round(montant * range.PercentageRate!.Value / 100m, 2, MidpointRounding.AwayFromZero);
+            appliedValue = range.TAUX!.Value;
+            montantCommission = Math.Round(montant * range.TAUX!.Value / 100m, 2, MidpointRounding.AwayFromZero);
         }
+
+        // Apply the floor/ceiling caps on the calculated commission, if configured.
+        if (range.Minimum.HasValue && montantCommission < range.Minimum.Value)
+            montantCommission = range.Minimum.Value;
+        if (range.Maximum.HasValue && montantCommission > range.Maximum.Value)
+            montantCommission = range.Maximum.Value;
 
         return new CommissionResult(
             commissionType.CommissionTypeID,

@@ -345,10 +345,12 @@ public class AppDbContext : DbContext
             .HasConversion<string>();
 
         // ---- Decimal precision (match DECIMAL(18,2) / (5,2) from the SQL schema) ----
-        modelBuilder.Entity<CommissionRange>().Property(x => x.MinAmount).HasColumnType("decimal(18,2)");
-        modelBuilder.Entity<CommissionRange>().Property(x => x.MaxAmount).HasColumnType("decimal(18,2)");
-        modelBuilder.Entity<CommissionRange>().Property(x => x.FixedAmount).HasColumnType("decimal(18,2)");
-        modelBuilder.Entity<CommissionRange>().Property(x => x.PercentageRate).HasColumnType("decimal(5,2)");
+        modelBuilder.Entity<CommissionRange>().Property(x => x.Inf).HasColumnType("decimal(18,2)");
+        modelBuilder.Entity<CommissionRange>().Property(x => x.Sup).HasColumnType("decimal(18,2)");
+        modelBuilder.Entity<CommissionRange>().Property(x => x.Fixe).HasColumnType("decimal(18,2)");
+        modelBuilder.Entity<CommissionRange>().Property(x => x.TAUX).HasColumnType("decimal(5,2)");
+        modelBuilder.Entity<CommissionRange>().Property(x => x.Minimum).HasColumnType("decimal(18,2)");
+        modelBuilder.Entity<CommissionRange>().Property(x => x.Maximum).HasColumnType("decimal(18,2)");
         modelBuilder.Entity<Accounts>().Property(x => x.Balance).HasColumnType("decimal(18,2)");
         modelBuilder.Entity<Transactions>().Property(x => x.Montant).HasColumnType("decimal(18,2)");
         modelBuilder.Entity<Transactions>().Property(x => x.MontantCommission).HasColumnType("decimal(18,2)");
@@ -359,10 +361,12 @@ public class AppDbContext : DbContext
         modelBuilder.Entity<HistCalculComis>().Property(x => x.TauxAppliqueOuFixe).HasColumnType("decimal(18,2)");
         modelBuilder.Entity<AccountsTMP>().Property(x => x.Balance).HasColumnType("decimal(18,2)");
         modelBuilder.Entity<CollectorTMP>().Property(x => x.Plafond).HasColumnType("decimal(18,2)");
-        modelBuilder.Entity<CommissionRangeTmp>().Property(x => x.FixedAmount).HasColumnType("decimal(18,2)");
-        modelBuilder.Entity<CommissionRangeTmp>().Property(x => x.MaxAmount).HasColumnType("decimal(18,2)");
-        modelBuilder.Entity<CommissionRangeTmp>().Property(x => x.MinAmount).HasColumnType("decimal(18,2)");
-        modelBuilder.Entity<CommissionRangeTmp>().Property(x => x.PercentageRate).HasColumnType("decimal(5,2)");
+        modelBuilder.Entity<CommissionRangeTmp>().Property(x => x.Fixe).HasColumnType("decimal(18,2)");
+        modelBuilder.Entity<CommissionRangeTmp>().Property(x => x.Sup).HasColumnType("decimal(18,2)");
+        modelBuilder.Entity<CommissionRangeTmp>().Property(x => x.Inf).HasColumnType("decimal(18,2)");
+        modelBuilder.Entity<CommissionRangeTmp>().Property(x => x.TAUX).HasColumnType("decimal(5,2)");
+        modelBuilder.Entity<CommissionRangeTmp>().Property(x => x.Minimum).HasColumnType("decimal(18,2)");
+        modelBuilder.Entity<CommissionRangeTmp>().Property(x => x.Maximum).HasColumnType("decimal(18,2)");
         modelBuilder.Entity<IMFTmp>().Property(x => x.TauxTaxe).HasColumnType("decimal(5,2)");
         modelBuilder.Entity<TransactionsTMP>().Property(x => x.Montant).HasColumnType("decimal(18,2)");
 

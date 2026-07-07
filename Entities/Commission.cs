@@ -22,24 +22,31 @@ public class CommissionType
 
 public class CommissionRange
 {
-    public int CommissionRangeID { get; set; }
-    public int CommissionTypeID { get; set; }
-    public CommissionType? CommissionType { get; set; }
+    public int CommissionRangeID { get; set; } // RangeId
+    public string? Description { get; set; }
+    public int CommissionTypeID { get; set; }   // underlying FK (kept as int for referential integrity)
+    public CommissionType? CommissionType { get; set; } // .Code exposed to the API as "CodeComis"
 
-    public decimal MinAmount { get; set; }
-    public decimal MaxAmount { get; set; }
+    public string CodeU { get; set; } = "XAF";  // currency code
+
+    public decimal Inf { get; set; }  // lower bound of the transaction amount range
+    public decimal Sup { get; set; }  // upper bound of the transaction amount range
 
     public CalculationMethod CalculationMethod { get; set; }
-    public decimal? FixedAmount { get; set; }
-    public decimal? PercentageRate { get; set; }
+    public decimal? Fixe { get; set; } // fixed commission amount
+    public decimal? TAUX { get; set; } // percentage rate
 
-    public string Currency { get; set; } = "XAF";
+    public decimal? Minimum { get; set; } // floor cap applied to the calculated commission
+    public decimal? Maximum { get; set; } // ceiling cap applied to the calculated commission
+
     public string Statut { get; set; } = "PENDING";   // ACTIVE / INACTIVE / PENDING
 
-    public string? CreatedBy { get; set; }
-    public DateTime CreatedDate { get; set; } = DateTime.UtcNow;
-    public string? ValidatedBy { get; set; }
-    public DateTime? ValidationDate { get; set; }
+    public string? UserCreate { get; set; }
+    public DateTime CreateDate { get; set; } = DateTime.UtcNow;
+    public string? UserVal { get; set; }
+    public DateTime? DateValidation { get; set; }
+    public string? LastUserModif { get; set; }
+    public DateTime? DateModification { get; set; }
 
     /// <summary>
     /// Server-side guard mirroring the DB CHECK constraints: exactly one of

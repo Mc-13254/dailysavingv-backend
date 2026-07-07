@@ -103,11 +103,13 @@ public class CommissionController : ControllerBase
             query = query.Where(r => r.CommissionTypeID == commissionTypeId.Value);
 
         var ranges = await query
-            .OrderBy(r => r.CommissionTypeID).ThenBy(r => r.MinAmount)
+            .OrderBy(r => r.CommissionTypeID).ThenBy(r => r.Inf)
             .Select(r => new CommissionRangeDto(
-                r.CommissionRangeID, r.CommissionTypeID, r.CommissionType!.Name,
-                r.MinAmount, r.MaxAmount, r.CalculationMethod.ToString(),
-                r.FixedAmount, r.PercentageRate, r.Currency, r.Statut))
+                r.CommissionRangeID, r.Description, r.CommissionTypeID, r.CommissionType!.Name, r.CommissionType!.Code,
+                r.Inf, r.Sup, r.CalculationMethod.ToString(),
+                r.Fixe, r.TAUX, r.Minimum, r.Maximum, r.CodeU, r.Statut,
+                r.UserCreate, r.CreateDate, r.UserVal, r.DateValidation,
+                r.LastUserModif, r.DateModification))
             .ToListAsync();
 
         return Ok(ranges);
@@ -118,21 +120,21 @@ public class CommissionController : ControllerBase
     [HttpPost("ranges")]
     public async Task<ActionResult> CreateRange(CreateCommissionRangeRequest request)
     {
-        if (request.MinAmount >= request.MaxAmount)
-            return BadRequest(new { message = "Minimum Amount must be less than Maximum Amount." });
+        if (request.Inf >= request.Sup)
+            return BadRequest(new { message = "Inf (borne inférieure) doit être inférieur à Sup (borne supérieure)." });
 
-        if (request.CalculationMethod == "FIXED" && (request.FixedAmount is null || request.PercentageRate is not null))
-            return BadRequest(new { message = "Fixed Amount must be set and Percentage Rate must be empty." });
+        if (request.CalculationMethod == "FIXED" && (request.Fixe is null || request.TAUX is not null))
+            return BadRequest(new { message = "Fixe doit être renseigné et TAUX doit être vide." });
 
-        if (request.CalculationMethod == "PERCENTAGE" && (request.PercentageRate is null || request.FixedAmount is not null))
-            return BadRequest(new { message = "Percentage Rate must be set and Fixed Amount must be empty." });
+        if (request.CalculationMethod == "PERCENTAGE" && (request.TAUX is null || request.Fixe is not null))
+            return BadRequest(new { message = "TAUX doit être renseigné et Fixe doit être vide." });
 
         // Overlap check against currently ACTIVE ranges of the same type
         var overlaps = await _db.CommissionRanges.AnyAsync(r =>
             r.CommissionTypeID == request.CommissionTypeID &&
             r.Statut == "ACTIVE" &&
-            request.MinAmount <= r.MaxAmount &&
-            request.MaxAmount >= r.MinAmount);
+            request.Inf <= r.Sup &&
+            request.Sup >= r.Inf);
 
         if (overlaps)
             return BadRequest(new { message = "This range overlaps an existing active range for the same Commission Type." });
@@ -141,12 +143,15 @@ public class CommissionController : ControllerBase
         {
             ActionType = PendingActionType.CREATE,
             CommissionTypeID = request.CommissionTypeID,
-            MinAmount = request.MinAmount,
-            MaxAmount = request.MaxAmount,
+            Description = request.Description,
+            Inf = request.Inf,
+            Sup = request.Sup,
             CalculationMethod = request.CalculationMethod,
-            FixedAmount = request.FixedAmount,
-            PercentageRate = request.PercentageRate,
-            Currency = request.Currency,
+            Fixe = request.Fixe,
+            TAUX = request.TAUX,
+            Minimum = request.Minimum,
+            Maximum = request.Maximum,
+            CodeU = request.CodeU,
             RequestUser = _currentUser.CodeUser!,
             NewData = JsonSerializer.Serialize(request)
         };
@@ -168,12 +173,15 @@ public class CommissionController : ControllerBase
             ActionType = PendingActionType.UPDATE,
             TargetCommissionRangeID = id,
             CommissionTypeID = request.CommissionTypeID,
-            MinAmount = request.MinAmount,
-            MaxAmount = request.MaxAmount,
+            Description = request.Description,
+            Inf = request.Inf,
+            Sup = request.Sup,
             CalculationMethod = request.CalculationMethod,
-            FixedAmount = request.FixedAmount,
-            PercentageRate = request.PercentageRate,
-            Currency = request.Currency,
+            Fixe = request.Fixe,
+            TAUX = request.TAUX,
+            Minimum = request.Minimum,
+            Maximum = request.Maximum,
+            CodeU = request.CodeU,
             RequestUser = _currentUser.CodeUser!,
             PreviousData = JsonSerializer.Serialize(existing),
             NewData = JsonSerializer.Serialize(request)
@@ -234,35 +242,44 @@ public class CommissionController : ControllerBase
             _db.CommissionRanges.Add(new CommissionRange
             {
                 CommissionTypeID = draft.CommissionTypeID!.Value,
-                MinAmount = draft.MinAmount!.Value,
-                MaxAmount = draft.MaxAmount!.Value,
+                Description = draft.Description,
+                Inf = draft.Inf!.Value,
+                Sup = draft.Sup!.Value,
                 CalculationMethod = method,
-                FixedAmount = draft.FixedAmount,
-                PercentageRate = draft.PercentageRate,
-                Currency = draft.Currency ?? "XAF",
+                Fixe = draft.Fixe,
+                TAUX = draft.TAUX,
+                Minimum = draft.Minimum,
+                Maximum = draft.Maximum,
+                CodeU = draft.CodeU ?? "XAF",
                 Statut = "ACTIVE",
-                CreatedBy = draft.RequestUser,
-                ValidatedBy = _currentUser.CodeUser,
-                ValidationDate = DateTime.UtcNow
+                UserCreate = draft.RequestUser,
+                UserVal = _currentUser.CodeUser,
+                DateValidation = DateTime.UtcNow
             });
         }
         else if (draft.ActionType == PendingActionType.UPDATE && draft.TargetCommissionRangeID.HasValue)
         {
             var existing = await _db.CommissionRanges.FirstOrDefaultAsync(r => r.CommissionRangeID == draft.TargetCommissionRangeID.Value)
                 ?? throw new KeyNotFoundException("Target range no longer exists.");
-            existing.MinAmount = draft.MinAmount ?? existing.MinAmount;
-            existing.MaxAmount = draft.MaxAmount ?? existing.MaxAmount;
+            existing.Description = draft.Description;
+            existing.Inf = draft.Inf ?? existing.Inf;
+            existing.Sup = draft.Sup ?? existing.Sup;
             existing.CalculationMethod = method;
-            existing.FixedAmount = draft.FixedAmount;
-            existing.PercentageRate = draft.PercentageRate;
-            existing.ValidatedBy = _currentUser.CodeUser;
-            existing.ValidationDate = DateTime.UtcNow;
+            existing.Fixe = draft.Fixe;
+            existing.TAUX = draft.TAUX;
+            existing.Minimum = draft.Minimum;
+            existing.Maximum = draft.Maximum;
+            if (draft.CodeU != null) existing.CodeU = draft.CodeU;
+            existing.LastUserModif = _currentUser.CodeUser;
+            existing.DateModification = DateTime.UtcNow;
         }
         else if (draft.ActionType == PendingActionType.DELETE && draft.TargetCommissionRangeID.HasValue)
         {
             var existing = await _db.CommissionRanges.FirstOrDefaultAsync(r => r.CommissionRangeID == draft.TargetCommissionRangeID.Value)
                 ?? throw new KeyNotFoundException("Target range no longer exists.");
             existing.Statut = "INACTIVE";
+            existing.LastUserModif = _currentUser.CodeUser;
+            existing.DateModification = DateTime.UtcNow;
         }
 
         draft.PendingStatus = PendingStatusEnum.APPROVED;
