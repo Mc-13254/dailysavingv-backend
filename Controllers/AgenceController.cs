@@ -48,6 +48,9 @@ public class AgenceController : ControllerBase
     [Authorize(Policy = "AdminOnly")]
     public async Task<ActionResult> Create(CreateAgenceRequest request)
     {
+        if (string.IsNullOrWhiteSpace(request.CodeIMF) || !await _db.IMFs.AnyAsync(i => i.CodeIMF == request.CodeIMF))
+            return BadRequest(new { message = "Veuillez sélectionner une IMF valide et déjà validée. Si votre IMF est encore en attente, validez-la d'abord dans Validations → IMF." });
+
         var draft = new AgenceTmp
         {
             ActionType = PendingActionType.CREATE,
@@ -164,6 +167,9 @@ public class AgenceController : ControllerBase
 
         if (draft.ActionType == PendingActionType.CREATE)
         {
+            if (string.IsNullOrWhiteSpace(draft.CodeIMF) || !await _db.IMFs.AnyAsync(i => i.CodeIMF == draft.CodeIMF))
+                return BadRequest(new { message = "Impossible de valider : l'IMF référencée par cette demande n'existe pas (ou plus). Rejetez cette demande et recréez l'agence." });
+
             _db.Agences.Add(new Entities.Agence
             {
                 CodeAgence = draft.CodeAgence!,
