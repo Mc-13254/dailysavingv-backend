@@ -52,15 +52,16 @@ public class CommissionRange
     /// Server-side guard mirroring the DB CHECK constraints: exactly one of
     /// FixedAmount / PercentageRate must be set, consistent with CalculationMethod.
     /// </summary>
-    public bool IsValid()
-    {
-        if (MinAmount >= MaxAmount) return false;
+   public bool IsValid()
+{
+    if (Inf >= Sup) return false;
 
-        return CalculationMethod switch
-        {
-            CalculationMethod.FIXED => FixedAmount.HasValue && !PercentageRate.HasValue,
-            CalculationMethod.PERCENTAGE => PercentageRate.HasValue && !FixedAmount.HasValue,
-            _ => false
-        };
+    return CalculationMethod switch
+    {
+        CalculationMethod.FIXED => Fixe.HasValue && !TAUX.HasValue,
+        CalculationMethod.PERCENTAGE => TAUX.HasValue && !Fixe.HasValue,
+        _ => false
+    };
+
     }
 }
