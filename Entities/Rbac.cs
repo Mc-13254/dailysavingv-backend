@@ -42,3 +42,23 @@ public class RoleFonctionnalite
     public int RoleID { get; set; }
     public int FonctionnaliteID { get; set; }
 }
+
+public class Permission
+{
+    public int PermissionID { get; set; }
+    public string PermissionCode { get; set; } = null!;
+    public string PermissionName { get; set; } = null!; // e.g. "View", "Create", "Approve"
+    public string Module { get; set; } = null!;         // e.g. "IMF", "Collectors", "Operations"
+    public string Action { get; set; } = null!;          // e.g. "VIEW", "CREATE", "EDIT", "DELETE", "APPROVE"
+    public string? Description { get; set; }
+}
+
+public class RolePermission
+{
+    public int RolePermissionID { get; set; }
+    public int RoleID { get; set; }
+    public Role? Role { get; set; }
+    public int PermissionID { get; set; }
+    public Permission? Permission { get; set; }
+    public bool Allowed { get; set; }
+}

@@ -38,6 +38,8 @@ public class AppDbContext : DbContext
     public DbSet<Habilitation> Habilitations => Set<Habilitation>();
     public DbSet<Habiliter> Habiliters => Set<Habiliter>();
     public DbSet<RoleFonctionnalite> RoleFonctionnalites => Set<RoleFonctionnalite>();
+    public DbSet<Permission> Permissions => Set<Permission>();
+    public DbSet<RolePermission> RolePermissions => Set<RolePermission>();
 
     // Users
     public DbSet<Users> Users => Set<Users>();
@@ -112,6 +114,8 @@ public class AppDbContext : DbContext
         modelBuilder.Entity<AgenceTmp>().ToTable("AgenceTmp");
         modelBuilder.Entity<RoleTmp>().ToTable("RoleTmp");
         modelBuilder.Entity<Department>().ToTable("Department");
+        modelBuilder.Entity<Permission>().ToTable("Permission");
+        modelBuilder.Entity<RolePermission>().ToTable("RolePermission");
         modelBuilder.Entity<DepartmentTmp>().ToTable("DepartmentTmp");
         modelBuilder.Entity<IMFTmp>().ToTable("IMFTmp");
         modelBuilder.Entity<TransactionsTMP>().ToTable("TransactionsTMP");
@@ -282,9 +286,25 @@ public class AppDbContext : DbContext
             .IsRequired(false);
 
         modelBuilder.Entity<Users>()
-            .HasOne(x => x.Department).WithMany()
+            .HasOne(x => x.DepartmentRef).WithMany()
             .HasForeignKey(x => x.DepartmentID)
             .IsRequired(false);
+
+        modelBuilder.Entity<RolePermission>()
+            .HasOne(x => x.Role).WithMany()
+            .HasForeignKey(x => x.RoleID)
+            .OnDelete(DeleteBehavior.Cascade)
+            .IsRequired();
+
+        modelBuilder.Entity<RolePermission>()
+            .HasOne(x => x.Permission).WithMany()
+            .HasForeignKey(x => x.PermissionID)
+            .OnDelete(DeleteBehavior.Cascade)
+            .IsRequired();
+
+        modelBuilder.Entity<RolePermission>()
+            .HasIndex(x => new { x.RoleID, x.PermissionID })
+            .IsUnique();
 
         // EF Core stores enums as integers by default. The *Tmp (Pending)
         // tables' ActionType/PendingStatus columns are NVARCHAR with a CHECK

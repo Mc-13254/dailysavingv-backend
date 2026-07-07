@@ -34,7 +34,7 @@ public class Users
     public int? AgenceID { get; set; }
     public Agence? Agence { get; set; }
     public int? DepartmentID { get; set; }
-    public Department? Department { get; set; }
+    public Department? DepartmentRef { get; set; }
 
     // Financial settings
     public decimal? DebitMax { get; set; }
