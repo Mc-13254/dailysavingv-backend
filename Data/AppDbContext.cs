@@ -109,6 +109,8 @@ public class AppDbContext : DbContext
         modelBuilder.Entity<AgenceTmp>().ToTable("AgenceTmp");
         modelBuilder.Entity<IMFTmp>().ToTable("IMFTmp");
         modelBuilder.Entity<TransactionsTMP>().ToTable("TransactionsTMP");
+        modelBuilder.Entity<TimeZoneRef>().ToTable("TimeZoneRef");
+        modelBuilder.Entity<TimeZoneRef>().HasKey(x => x.TimeZoneID);
 
         // ---- Keys ----
         modelBuilder.Entity<IMF>().HasKey(x => x.CodeIMF);
@@ -117,7 +119,6 @@ public class AppDbContext : DbContext
         modelBuilder.Entity<Language>().HasKey(x => x.LanguageCode);
         modelBuilder.Entity<Language>().ToTable("Language");
         modelBuilder.Entity<TimeZoneRef>().ToTable("TimeZoneRef");
-        modelBuilder.Entity<TimeZoneRef>().HasKey(x => x.TimeZoneID);
         modelBuilder.Entity<Users>().HasKey(x => x.CodeUser);
         modelBuilder.Entity<Collector>().HasKey(x => x.CollectorID);
         modelBuilder.Entity<Client>().HasKey(x => x.ClientID);
@@ -151,14 +152,6 @@ public class AppDbContext : DbContext
 
         // =====================================================================
         // RELATIONSHIPS: explicit FK configuration.
-        // Without this, EF Core's convention sometimes fails to associate an
-        // existing scalar FK property (e.g. Agence.CodeIMF) with its navigation
-        // property (Agence.IMF) - especially when the FK is a string business
-        // key rather than a surrogate int, or when the navigation is nullable
-        // but the scalar FK is not. When that happens, EF silently creates an
-        // extra *shadow* column (e.g. "IMFCodeIMF") instead of reusing the real
-        // one, causing "Invalid column name" at runtime. Configuring every
-        // relationship explicitly removes all ambiguity.
         // =====================================================================
         modelBuilder.Entity<Region>()
             .HasOne(x => x.Pays).WithMany(x => x.Regions)
@@ -238,6 +231,25 @@ public class AppDbContext : DbContext
             .HasForeignKey(x => x.VilleID)
             .IsRequired(false);
 
+        // EF Core stores enums as integers by default. The *Tmp (Pending)
+        // tables' ActionType/PendingStatus columns are NVARCHAR with a CHECK
+        // constraint expecting the text ('CREATE'/'UPDATE'/'DELETE', etc.),
+        // so every Pending entity needs its enum properties converted to
+        // strings - applied once here for all of them instead of repeating
+        // it per entity.
+        foreach (var entityType in modelBuilder.Model.GetEntityTypes())
+        {
+            if (!typeof(Entities.Pending.PendingBase).IsAssignableFrom(entityType.ClrType)) continue;
+
+            modelBuilder.Entity(entityType.ClrType)
+                .Property(nameof(Entities.Pending.PendingBase.ActionType))
+                .HasConversion<string>();
+
+            modelBuilder.Entity(entityType.ClrType)
+                .Property(nameof(Entities.Pending.PendingBase.PendingStatus))
+                .HasConversion<string>();
+        }
+
         // ---- Enum -> string conversions (readable values in DB, matches CHECK constraints) ----
         modelBuilder.Entity<CommissionRange>()
             .Property(x => x.CalculationMethod)
@@ -271,10 +283,6 @@ public class AppDbContext : DbContext
 
         // =====================================================================
         // AGENCY SCOPING: global query filters.
-        // These make EVERY LINQ query against these DbSets automatically drop
-        // rows outside the connected user's agency - no need to remember to
-        // add ".Where(x => x.AgenceID == ...)" in every controller/service.
-        // Admin/HQ users (AgenceID == null on their account) bypass the filter.
         // =====================================================================
         modelBuilder.Entity<Collector>()
             .HasQueryFilter(x => _currentUser.IsHeadOffice || x.AgenceID == _currentUser.AgenceID);
