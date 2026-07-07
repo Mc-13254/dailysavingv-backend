@@ -6,20 +6,47 @@ public class Collector
     public string CodeUser { get; set; } = null!;
     public Users? Users { get; set; }
     public string Name { get; set; } = null!;
+    public string? Surname { get; set; }
     public string? PhoneNumber { get; set; }
 
     // Agency-scoping key: every read of Collector data MUST be filtered on this
     public int AgenceID { get; set; }
     public Agence? Agence { get; set; }
 
+    public int? DepartmentID { get; set; }
+    public Department? Department { get; set; }
+
     public int? ZoneCollecteID { get; set; }
     public bool IsActive { get; set; } = true;
+    public string CDETAT { get; set; } = "ACTIVE"; // ACTIVE / INACTIVE / SUSPENDED / ONLEAVE
     public DateTime? DateEmploi { get; set; }
-    public string? ContactType { get; set; }
+    public string? ContactType { get; set; } // Collector Type: Field/Senior/Supervisor Collector
     public string? CodeTerminal { get; set; }
     public decimal Plafond { get; set; }
-    public string? CreatedBy { get; set; }
-    public DateTime CreatedDate { get; set; } = DateTime.UtcNow;
+    public decimal? Caution { get; set; }
+
+    public int? ContractID { get; set; }
+    public ContractType? Contract { get; set; }
+    public int? CommissionTypeID { get; set; }
+    public CommissionType? CommissionType { get; set; }
+    public int? CommissionRangeID { get; set; }
+    public CommissionRange? CommissionRange { get; set; }
+    public string? SupervisorId { get; set; }
+    public Users? Supervisor { get; set; }
+
+    public decimal? CollectMonth { get; set; }  // monthly collection limit
+    public decimal? CollectDay { get; set; }    // daily collection limit
+    public decimal? RetraitMonth { get; set; }  // monthly withdrawal limit
+    public decimal? RetraitDay { get; set; }    // daily withdrawal limit
+
+    public string? UserCreate { get; set; }
+    public DateTime CreateDate { get; set; } = DateTime.UtcNow;
+    public string? UserValidation { get; set; }
+    public DateTime? DateValidation { get; set; }
+    public string? LastUserModif { get; set; }
+    public DateTime? DateModification { get; set; }
+    public string? LastUserSupervise { get; set; }
+    public DateTime? LastDateSupervise { get; set; }
 }
 
 public class Client

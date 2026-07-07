@@ -212,6 +212,31 @@ public class AppDbContext : DbContext
             .HasForeignKey(x => x.AgenceID)
             .IsRequired();
 
+        modelBuilder.Entity<Collector>()
+            .HasOne(x => x.Department).WithMany()
+            .HasForeignKey(x => x.DepartmentID)
+            .IsRequired(false);
+
+        modelBuilder.Entity<Collector>()
+            .HasOne(x => x.Contract).WithMany()
+            .HasForeignKey(x => x.ContractID)
+            .IsRequired(false);
+
+        modelBuilder.Entity<Collector>()
+            .HasOne(x => x.CommissionType).WithMany()
+            .HasForeignKey(x => x.CommissionTypeID)
+            .IsRequired(false);
+
+        modelBuilder.Entity<Collector>()
+            .HasOne(x => x.CommissionRange).WithMany()
+            .HasForeignKey(x => x.CommissionRangeID)
+            .IsRequired(false);
+
+        modelBuilder.Entity<Collector>()
+            .HasOne(x => x.Supervisor).WithMany()
+            .HasForeignKey(x => x.SupervisorId)
+            .IsRequired(false);
+
         modelBuilder.Entity<Client>()
             .HasOne(x => x.Agence).WithMany()
             .HasForeignKey(x => x.AgenceID)
@@ -361,6 +386,17 @@ public class AppDbContext : DbContext
         modelBuilder.Entity<Transactions>().Property(x => x.Montant).HasColumnType("decimal(18,2)");
         modelBuilder.Entity<Transactions>().Property(x => x.MontantCommission).HasColumnType("decimal(18,2)");
         modelBuilder.Entity<Collector>().Property(x => x.Plafond).HasColumnType("decimal(18,2)");
+        modelBuilder.Entity<Collector>().Property(x => x.Caution).HasColumnType("decimal(18,2)");
+        modelBuilder.Entity<Collector>().Property(x => x.CollectMonth).HasColumnType("decimal(18,2)");
+        modelBuilder.Entity<Collector>().Property(x => x.CollectDay).HasColumnType("decimal(18,2)");
+        modelBuilder.Entity<Collector>().Property(x => x.RetraitMonth).HasColumnType("decimal(18,2)");
+        modelBuilder.Entity<Collector>().Property(x => x.RetraitDay).HasColumnType("decimal(18,2)");
+        modelBuilder.Entity<CollectorTMP>().Property(x => x.Plafond).HasColumnType("decimal(18,2)");
+        modelBuilder.Entity<CollectorTMP>().Property(x => x.Caution).HasColumnType("decimal(18,2)");
+        modelBuilder.Entity<CollectorTMP>().Property(x => x.CollectMonth).HasColumnType("decimal(18,2)");
+        modelBuilder.Entity<CollectorTMP>().Property(x => x.CollectDay).HasColumnType("decimal(18,2)");
+        modelBuilder.Entity<CollectorTMP>().Property(x => x.RetraitMonth).HasColumnType("decimal(18,2)");
+        modelBuilder.Entity<CollectorTMP>().Property(x => x.RetraitDay).HasColumnType("decimal(18,2)");
         modelBuilder.Entity<IMF>().Property(x => x.TauxTaxe).HasColumnType("decimal(5,2)");
         modelBuilder.Entity<HistCalculComis>().Property(x => x.MontantCommission).HasColumnType("decimal(18,2)");
         modelBuilder.Entity<HistCalculComis>().Property(x => x.MontantTransaction).HasColumnType("decimal(18,2)");

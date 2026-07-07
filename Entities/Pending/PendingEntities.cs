@@ -58,14 +58,26 @@ public class CollectorTMP : PendingBase
     public string? TargetCollectorID { get; set; }
     public string? CodeUser { get; set; }
     public string? Name { get; set; }
+    public string? Surname { get; set; }
     public string? PhoneNumber { get; set; }
     public int? AgenceID { get; set; }
+    public int? DepartmentID { get; set; }
     public int? ZoneCollecteID { get; set; }
     public bool? IsActive { get; set; }
+    public string? CDETAT { get; set; }
     public DateTime? DateEmploi { get; set; }
     public string? ContactType { get; set; }
     public string? CodeTerminal { get; set; }
     public decimal? Plafond { get; set; }
+    public decimal? Caution { get; set; }
+    public int? ContractID { get; set; }
+    public int? CommissionTypeID { get; set; }
+    public int? CommissionRangeID { get; set; }
+    public string? SupervisorId { get; set; }
+    public decimal? CollectMonth { get; set; }
+    public decimal? CollectDay { get; set; }
+    public decimal? RetraitMonth { get; set; }
+    public decimal? RetraitDay { get; set; }
 }
 
 public class ClientTmp : PendingBase
