@@ -54,12 +54,12 @@ public class CommissionRange
     /// </summary>
     public bool IsValid()
     {
-        if (MinAmount >= MaxAmount) return false;
+        if (Inf >= Sup) return false;
 
         return CalculationMethod switch
         {
-            CalculationMethod.FIXED => FixedAmount.HasValue && !PercentageRate.HasValue,
-            CalculationMethod.PERCENTAGE => PercentageRate.HasValue && !FixedAmount.HasValue,
+            CalculationMethod.FIXED => Fixe.HasValue && !TAUX.HasValue,
+            CalculationMethod.PERCENTAGE => TAUX.HasValue && !Fixe.HasValue,
             _ => false
         };
     }

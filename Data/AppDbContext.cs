@@ -245,6 +245,10 @@ public class AppDbContext : DbContext
             .HasForeignKey(x => x.CommissionTypeID)
             .IsRequired();
 
+        // SQL Server forbids EF Core's OUTPUT clause on tables with triggers
+        // (TRG_CommissionRange_NoOverlap) — disable it for this entity.
+        modelBuilder.Entity<CommissionRange>().ToTable(tb => tb.UseSqlOutputClause(false));
+
         modelBuilder.Entity<IMF>()
             .HasOne(x => x.Pays).WithMany()
             .HasForeignKey(x => x.PaysID)

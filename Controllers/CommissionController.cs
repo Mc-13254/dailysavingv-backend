@@ -234,11 +234,9 @@ public class CommissionController : ControllerBase
         if (draft.PendingStatus != PendingStatusEnum.PENDING)
             return BadRequest(new { message = "This request has already been processed." });
 
-        // Re-check overlap at approval time too (state may have changed since submission)
-        var method = Enum.Parse<CalculationMethod>(draft.CalculationMethod!);
-
         if (draft.ActionType == PendingActionType.CREATE)
         {
+            var method = Enum.Parse<CalculationMethod>(draft.CalculationMethod!);
             _db.CommissionRanges.Add(new CommissionRange
             {
                 CommissionTypeID = draft.CommissionTypeID!.Value,
@@ -259,6 +257,7 @@ public class CommissionController : ControllerBase
         }
         else if (draft.ActionType == PendingActionType.UPDATE && draft.TargetCommissionRangeID.HasValue)
         {
+            var method = Enum.Parse<CalculationMethod>(draft.CalculationMethod!);
             var existing = await _db.CommissionRanges.FirstOrDefaultAsync(r => r.CommissionRangeID == draft.TargetCommissionRangeID.Value)
                 ?? throw new KeyNotFoundException("Target range no longer exists.");
             existing.Description = draft.Description;
