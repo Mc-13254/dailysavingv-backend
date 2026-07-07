@@ -41,19 +41,22 @@ public class CommissionController : ControllerBase
     [Authorize(Policy = "SupervisorOrAdmin")]
     public async Task<ActionResult> CreateType(CreateCommissionTypeRequest request)
     {
-        var draft = new CommissionTypeTmp
+        // Commission Type is a low-risk business parameter (unlike Commission Range,
+        // which affects live commission calculations) - saved directly, no Maker-Checker.
+        var codeExists = await _db.CommissionTypes.AnyAsync(t => t.Code == request.Code);
+        if (codeExists)
+            return BadRequest(new { message = "Ce code de type de commission existe déjà." });
+
+        _db.CommissionTypes.Add(new CommissionType
         {
-            ActionType = PendingActionType.CREATE,
             Code = request.Code,
             Name = request.Name,
             Description = request.Description,
             Statut = "ACTIVE",
-            RequestUser = _currentUser.CodeUser!,
-            NewData = JsonSerializer.Serialize(request)
-        };
-        _db.CommissionTypeTmps.Add(draft);
+            CreatedBy = _currentUser.CodeUser
+        });
         await _db.SaveChangesAsync();
-        return Ok(new { message = "Commission Type soumis pour validation.", pendingId = draft.PendingID });
+        return Ok(new { message = "Commission Type créé." });
     }
 
     [HttpPut("types/{id:int}")]
@@ -63,20 +66,15 @@ public class CommissionController : ControllerBase
         var existing = await _db.CommissionTypes.FirstOrDefaultAsync(t => t.CommissionTypeID == id)
             ?? throw new KeyNotFoundException("Commission type not found.");
 
-        var draft = new CommissionTypeTmp
-        {
-            ActionType = PendingActionType.UPDATE,
-            TargetCommissionTypeID = id,
-            Code = request.Code,
-            Name = request.Name,
-            Description = request.Description,
-            RequestUser = _currentUser.CodeUser!,
-            PreviousData = JsonSerializer.Serialize(existing),
-            NewData = JsonSerializer.Serialize(request)
-        };
-        _db.CommissionTypeTmps.Add(draft);
+        var codeTaken = await _db.CommissionTypes.AnyAsync(t => t.Code == request.Code && t.CommissionTypeID != id);
+        if (codeTaken)
+            return BadRequest(new { message = "Ce code de type de commission existe déjà." });
+
+        existing.Code = request.Code;
+        existing.Name = request.Name;
+        existing.Description = request.Description;
         await _db.SaveChangesAsync();
-        return Ok(new { message = "Modification soumise pour validation.", pendingId = draft.PendingID });
+        return Ok(new { message = "Commission Type modifié." });
     }
 
     [HttpDelete("types/{id:int}")]
@@ -86,82 +84,13 @@ public class CommissionController : ControllerBase
         var existing = await _db.CommissionTypes.FirstOrDefaultAsync(t => t.CommissionTypeID == id)
             ?? throw new KeyNotFoundException("Commission type not found.");
 
-        var draft = new CommissionTypeTmp
-        {
-            ActionType = PendingActionType.DELETE,
-            TargetCommissionTypeID = id,
-            RequestUser = _currentUser.CodeUser!,
-            PreviousData = JsonSerializer.Serialize(existing)
-        };
-        _db.CommissionTypeTmps.Add(draft);
+        var isUsed = await _db.CommissionRanges.AnyAsync(r => r.CommissionTypeID == id);
+        if (isUsed)
+            return BadRequest(new { message = "Impossible de supprimer : ce type de commission possède des tranches définies." });
+
+        existing.Statut = "INACTIVE"; // soft delete
         await _db.SaveChangesAsync();
-        return Ok(new { message = "Suppression soumise pour validation.", pendingId = draft.PendingID });
-    }
-
-    [HttpGet("types/pending")]
-    [Authorize(Policy = "SupervisorOrAdmin")]
-    public async Task<ActionResult<IEnumerable<CommissionTypeTmp>>> GetPendingTypes()
-    {
-        var pending = await _db.CommissionTypeTmps.Where(t => t.PendingStatus == PendingStatusEnum.PENDING).OrderBy(t => t.RequestDate).ToListAsync();
-        return Ok(pending);
-    }
-
-    [HttpPost("types/pending/{pendingId:int}/approve")]
-    [Authorize(Policy = "SupervisorOrAdmin")]
-    public async Task<ActionResult> ApproveType(int pendingId)
-    {
-        var draft = await _db.CommissionTypeTmps.FirstOrDefaultAsync(t => t.PendingID == pendingId)
-            ?? throw new KeyNotFoundException("Pending record not found.");
-
-        if (draft.PendingStatus != PendingStatusEnum.PENDING)
-            return BadRequest(new { message = "This request has already been processed." });
-
-        if (draft.ActionType == PendingActionType.CREATE)
-        {
-            _db.CommissionTypes.Add(new CommissionType
-            {
-                Code = draft.Code!,
-                Name = draft.Name!,
-                Description = draft.Description,
-                Statut = "ACTIVE",
-                ValidationStatus = "VALIDATED",
-                CreatedBy = draft.RequestUser
-            });
-        }
-        else if (draft.ActionType == PendingActionType.UPDATE && draft.TargetCommissionTypeID.HasValue)
-        {
-            var existing = await _db.CommissionTypes.FirstOrDefaultAsync(t => t.CommissionTypeID == draft.TargetCommissionTypeID.Value)
-                ?? throw new KeyNotFoundException("Target commission type no longer exists.");
-            if (draft.Code != null) existing.Code = draft.Code;
-            if (draft.Name != null) existing.Name = draft.Name;
-            if (draft.Description != null) existing.Description = draft.Description;
-        }
-        else if (draft.ActionType == PendingActionType.DELETE && draft.TargetCommissionTypeID.HasValue)
-        {
-            var existing = await _db.CommissionTypes.FirstOrDefaultAsync(t => t.CommissionTypeID == draft.TargetCommissionTypeID.Value)
-                ?? throw new KeyNotFoundException("Target commission type no longer exists.");
-            existing.Statut = "INACTIVE";
-        }
-
-        draft.PendingStatus = PendingStatusEnum.APPROVED;
-        draft.ValidationUser = _currentUser.CodeUser;
-        draft.ValidationDate = DateTime.UtcNow;
-        await _db.SaveChangesAsync();
-        return Ok(new { message = "Commission Type validé." });
-    }
-
-    [HttpPost("types/pending/{pendingId:int}/reject")]
-    [Authorize(Policy = "SupervisorOrAdmin")]
-    public async Task<ActionResult> RejectType(int pendingId, RejectRequest request)
-    {
-        var draft = await _db.CommissionTypeTmps.FirstOrDefaultAsync(t => t.PendingID == pendingId)
-            ?? throw new KeyNotFoundException("Pending record not found.");
-        draft.PendingStatus = PendingStatusEnum.REJECTED;
-        draft.ValidationUser = _currentUser.CodeUser;
-        draft.ValidationDate = DateTime.UtcNow;
-        draft.RejectionReason = request.Reason;
-        await _db.SaveChangesAsync();
-        return Ok(new { message = "Commission Type rejeté." });
+        return Ok(new { message = "Commission Type désactivé." });
     }
 
     // ---- Commission Ranges ----
