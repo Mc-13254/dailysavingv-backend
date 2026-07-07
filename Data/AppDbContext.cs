@@ -31,6 +31,7 @@ public class AppDbContext : DbContext
     public DbSet<ConfigSyst> ConfigSysts => Set<ConfigSyst>();
     public DbSet<Agence> Agences => Set<Agence>();
     public DbSet<Department> Departments => Set<Department>();
+    public DbSet<ContractType> ContractTypes => Set<ContractType>();
 
     // RBAC
     public DbSet<Role> Roles => Set<Role>();
@@ -72,6 +73,7 @@ public class AppDbContext : DbContext
     public DbSet<AgenceTmp> AgenceTmps => Set<AgenceTmp>();
     public DbSet<RoleTmp> RoleTmps => Set<RoleTmp>();
     public DbSet<DepartmentTmp> DepartmentTmps => Set<DepartmentTmp>();
+    public DbSet<ContractTypeTmp> ContractTypeTmps => Set<ContractTypeTmp>();
     public DbSet<IMFTmp> IMFTmps => Set<IMFTmp>();
     public DbSet<TransactionsTMP> TransactionsTMPs => Set<TransactionsTMP>();
 
@@ -117,6 +119,8 @@ public class AppDbContext : DbContext
         modelBuilder.Entity<Permission>().ToTable("Permission");
         modelBuilder.Entity<RolePermission>().ToTable("RolePermission");
         modelBuilder.Entity<DepartmentTmp>().ToTable("DepartmentTmp");
+        modelBuilder.Entity<ContractType>().ToTable("ContractType");
+        modelBuilder.Entity<ContractTypeTmp>().ToTable("ContractTypeTmp");
         modelBuilder.Entity<IMFTmp>().ToTable("IMFTmp");
         modelBuilder.Entity<TransactionsTMP>().ToTable("TransactionsTMP");
 
@@ -158,6 +162,7 @@ public class AppDbContext : DbContext
         modelBuilder.Entity<AgenceTmp>().HasKey(x => x.PendingID);
         modelBuilder.Entity<RoleTmp>().HasKey(x => x.PendingID);
         modelBuilder.Entity<DepartmentTmp>().HasKey(x => x.PendingID);
+        modelBuilder.Entity<ContractTypeTmp>().HasKey(x => x.PendingID);
         modelBuilder.Entity<IMFTmp>().HasKey(x => x.PendingID);
         modelBuilder.Entity<TransactionsTMP>().HasKey(x => x.PendingID);
 
@@ -306,6 +311,11 @@ public class AppDbContext : DbContext
             .HasIndex(x => new { x.RoleID, x.PermissionID })
             .IsUnique();
 
+        modelBuilder.Entity<Contract>()
+            .HasOne(x => x.ContractTypeRef).WithMany()
+            .HasForeignKey(x => x.ContractTypeID)
+            .IsRequired(false);
+
         // EF Core stores enums as integers by default. The *Tmp (Pending)
         // tables' ActionType/PendingStatus columns are NVARCHAR with a CHECK
         // constraint expecting the text ('CREATE'/'UPDATE'/'DELETE', etc.),
@@ -355,6 +365,21 @@ public class AppDbContext : DbContext
         modelBuilder.Entity<CommissionRangeTmp>().Property(x => x.PercentageRate).HasColumnType("decimal(5,2)");
         modelBuilder.Entity<IMFTmp>().Property(x => x.TauxTaxe).HasColumnType("decimal(5,2)");
         modelBuilder.Entity<TransactionsTMP>().Property(x => x.Montant).HasColumnType("decimal(18,2)");
+
+        modelBuilder.Entity<ContractType>().Property(x => x.MinimumCollectionAmount).HasColumnType("decimal(18,2)");
+        modelBuilder.Entity<ContractType>().Property(x => x.MaximumCollectionAmount).HasColumnType("decimal(18,2)");
+        modelBuilder.Entity<ContractType>().Property(x => x.DefaultCollectionAmount).HasColumnType("decimal(18,2)");
+        modelBuilder.Entity<ContractType>().Property(x => x.MinimumOpeningBalance).HasColumnType("decimal(18,2)");
+        modelBuilder.Entity<ContractType>().Property(x => x.MaximumBalance).HasColumnType("decimal(18,2)");
+        modelBuilder.Entity<ContractType>().Property(x => x.InterestRate).HasColumnType("decimal(5,2)");
+        modelBuilder.Entity<ContractType>().Property(x => x.PenaltyAmount).HasColumnType("decimal(18,2)");
+        modelBuilder.Entity<ContractTypeTmp>().Property(x => x.MinimumCollectionAmount).HasColumnType("decimal(18,2)");
+        modelBuilder.Entity<ContractTypeTmp>().Property(x => x.MaximumCollectionAmount).HasColumnType("decimal(18,2)");
+        modelBuilder.Entity<ContractTypeTmp>().Property(x => x.DefaultCollectionAmount).HasColumnType("decimal(18,2)");
+        modelBuilder.Entity<ContractTypeTmp>().Property(x => x.MinimumOpeningBalance).HasColumnType("decimal(18,2)");
+        modelBuilder.Entity<ContractTypeTmp>().Property(x => x.MaximumBalance).HasColumnType("decimal(18,2)");
+        modelBuilder.Entity<ContractTypeTmp>().Property(x => x.InterestRate).HasColumnType("decimal(5,2)");
+        modelBuilder.Entity<ContractTypeTmp>().Property(x => x.PenaltyAmount).HasColumnType("decimal(18,2)");
         modelBuilder.Entity<Users>().Property(x => x.DebitMax).HasColumnType("decimal(18,2)");
         modelBuilder.Entity<Users>().Property(x => x.CreditMax).HasColumnType("decimal(18,2)");
         modelBuilder.Entity<Users>().Property(x => x.ValidationMax).HasColumnType("decimal(18,2)");

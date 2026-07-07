@@ -75,6 +75,8 @@ public class Contract
     public DateTime StartDate { get; set; }
     public DateTime? EndDate { get; set; }
     public string? ContractType { get; set; }
+    public int? ContractTypeID { get; set; }
+    public ContractType? ContractTypeRef { get; set; }
     public string? ContractDetails { get; set; }
     public string? Description { get; set; }
     public string Statut { get; set; } = "ACTIVE";
@@ -82,4 +84,34 @@ public class Contract
     public string? TerminationClause { get; set; }
     public string? CreatedBy { get; set; }
     public DateTime CreatedDate { get; set; } = DateTime.UtcNow;
+}
+
+public class ContractType
+{
+    public int ContractTypeID { get; set; }
+    public string ContractCode { get; set; } = null!;
+    public string ContractName { get; set; } = null!;
+    public string? ShortName { get; set; }
+    public string? Description { get; set; }
+
+    public bool AllowDailyCollection { get; set; }
+    public bool AllowWeeklyCollection { get; set; }
+    public bool AllowMonthlyCollection { get; set; }
+
+    public decimal? MinimumCollectionAmount { get; set; }
+    public decimal? MaximumCollectionAmount { get; set; }
+    public decimal? DefaultCollectionAmount { get; set; }
+    public decimal? MinimumOpeningBalance { get; set; }
+    public decimal? MaximumBalance { get; set; }
+    public decimal? InterestRate { get; set; }
+    public int? ContractDuration { get; set; }
+    public string? DurationUnit { get; set; } // Days/Weeks/Months/Years
+    public decimal? PenaltyAmount { get; set; }
+    public int? GracePeriod { get; set; }
+
+    public string Statut { get; set; } = "ACTIVE";
+    public string? CreatedBy { get; set; }
+    public DateTime CreatedDate { get; set; } = DateTime.UtcNow;
+    public string? UpdatedBy { get; set; }
+    public DateTime? UpdatedDate { get; set; }
 }
