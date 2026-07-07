@@ -30,6 +30,7 @@ public class IMF
     public Pays? Pays { get; set; }
     public int? VilleID { get; set; }
     public Ville? Ville { get; set; }
+    public string? CityName { get; set; }
     public string? Address { get; set; }
     public string? PostalCode { get; set; }
 
@@ -62,12 +63,33 @@ public class Agence
     public int AgenceID { get; set; }
     public string CodeAgence { get; set; } = null!;
     public string Nom { get; set; } = null!;
-    public string? Location { get; set; }
-    public string? ContactInfo { get; set; }
+    public string? ShortName { get; set; }
+    public string? Description { get; set; }
+    public string? LogoBase64 { get; set; }
+
+    public string? PrimaryPhone { get; set; }
+    public string? SecondaryPhone { get; set; }
+    public string? Email { get; set; }
+    public string? Website { get; set; }
+
+    public int? PaysID { get; set; }
+    public Pays? Pays { get; set; }
     public int? VilleID { get; set; }
+    public Ville? Ville { get; set; }
+    public string? Address { get; set; }
+    public string? PostalCode { get; set; }
+    public string? Location { get; set; } // legacy free-text field, kept for compatibility
+
     public string CodeIMF { get; set; } = null!;
     public IMF? IMF { get; set; }
+    public string? ManagerId { get; set; }
+    public Users? Manager { get; set; }
+    public DateTime? OpeningDate { get; set; }
+
+    public string? ContactInfo { get; set; } // legacy free-text field, kept for compatibility
     public string Statut { get; set; } = "ACTIVE";
     public string? CreatedBy { get; set; }
     public DateTime DateCreated { get; set; } = DateTime.UtcNow;
+    public string? UpdatedBy { get; set; }
+    public DateTime? UpdatedDate { get; set; }
 }

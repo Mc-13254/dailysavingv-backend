@@ -123,10 +123,22 @@ public class AgenceTmp : PendingBase
     public int? TargetAgenceID { get; set; }
     public string? CodeAgence { get; set; }
     public string? Nom { get; set; }
-    public string? Location { get; set; }
-    public string? ContactInfo { get; set; }
+    public string? ShortName { get; set; }
+    public string? Description { get; set; }
+    public string? LogoBase64 { get; set; }
+    public string? PrimaryPhone { get; set; }
+    public string? SecondaryPhone { get; set; }
+    public string? Email { get; set; }
+    public string? Website { get; set; }
+    public int? PaysID { get; set; }
     public int? VilleID { get; set; }
+    public string? Address { get; set; }
+    public string? PostalCode { get; set; }
+    public string? Location { get; set; }
     public string? CodeIMF { get; set; }
+    public string? ManagerId { get; set; }
+    public DateTime? OpeningDate { get; set; }
+    public string? ContactInfo { get; set; }
     public string? Statut { get; set; }
 }
 

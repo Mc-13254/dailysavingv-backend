@@ -27,13 +27,21 @@ public class AgenceController : ControllerBase
         _currentUser = currentUser;
     }
 
+    private static AgenceDto ToDto(Entities.Agence a) => new(
+        a.AgenceID, a.CodeAgence, a.Nom, a.ShortName, a.Description, a.LogoBase64,
+        a.PrimaryPhone, a.SecondaryPhone, a.Email, a.Website,
+        a.PaysID, a.Pays?.Nom, a.VilleID, a.Ville?.Nom, a.Address, a.PostalCode,
+        a.CodeIMF, a.IMF?.Libelle, a.ManagerId, a.Manager?.Username, a.OpeningDate,
+        a.Statut, a.DateCreated, a.CreatedBy, a.UpdatedBy, a.UpdatedDate
+    );
+
     [HttpGet]
     public async Task<ActionResult<IEnumerable<AgenceDto>>> GetAll()
     {
         var result = await _db.Agences
-            .Select(a => new AgenceDto(a.AgenceID, a.CodeAgence, a.Nom, a.Location, a.ContactInfo, a.Statut, a.DateCreated, a.CreatedBy, a.CodeIMF))
+            .Include(a => a.Pays).Include(a => a.Ville).Include(a => a.IMF).Include(a => a.Manager)
             .ToListAsync();
-        return Ok(result);
+        return Ok(result.Select(ToDto));
     }
 
     [HttpPost]
@@ -45,10 +53,20 @@ public class AgenceController : ControllerBase
             ActionType = PendingActionType.CREATE,
             CodeAgence = request.CodeAgence,
             Nom = request.Nom,
-            Location = request.Location,
-            ContactInfo = request.ContactInfo,
-            CodeIMF = request.CodeIMF,
+            ShortName = request.ShortName,
+            Description = request.Description,
+            LogoBase64 = request.LogoBase64,
+            PrimaryPhone = request.PrimaryPhone,
+            SecondaryPhone = request.SecondaryPhone,
+            Email = request.Email,
+            Website = request.Website,
+            PaysID = request.PaysID,
             VilleID = request.VilleID,
+            Address = request.Address,
+            PostalCode = request.PostalCode,
+            CodeIMF = request.CodeIMF,
+            ManagerId = request.ManagerId,
+            OpeningDate = request.OpeningDate,
             Statut = "ACTIVE",
             RequestUser = _currentUser.CodeUser!,
             NewData = JsonSerializer.Serialize(request)
@@ -60,20 +78,9 @@ public class AgenceController : ControllerBase
         return Ok(new { message = "Agence soumise pour validation.", pendingId = draft.PendingID });
     }
 
-    [HttpGet("pending")]
-    [Authorize(Policy = "AdminOnly")]
-    public async Task<ActionResult<IEnumerable<AgenceTmp>>> GetPending()
-    {
-        var pending = await _db.AgenceTmps
-            .Where(t => t.PendingStatus == PendingStatusEnum.PENDING)
-            .OrderBy(t => t.RequestDate)
-            .ToListAsync();
-        return Ok(pending);
-    }
-
     [HttpPut("{id:int}")]
     [Authorize(Policy = "AdminOnly")]
-    public async Task<ActionResult> Update(int id, CreateAgenceRequest request)
+    public async Task<ActionResult> Update(int id, UpdateAgenceRequest request)
     {
         var existing = await _db.Agences.FirstOrDefaultAsync(a => a.AgenceID == id)
             ?? throw new KeyNotFoundException("Agence not found.");
@@ -82,12 +89,21 @@ public class AgenceController : ControllerBase
         {
             ActionType = PendingActionType.UPDATE,
             TargetAgenceID = id,
-            CodeAgence = request.CodeAgence,
             Nom = request.Nom,
-            Location = request.Location,
-            ContactInfo = request.ContactInfo,
-            CodeIMF = request.CodeIMF,
+            ShortName = request.ShortName,
+            Description = request.Description,
+            LogoBase64 = request.LogoBase64,
+            PrimaryPhone = request.PrimaryPhone,
+            SecondaryPhone = request.SecondaryPhone,
+            Email = request.Email,
+            Website = request.Website,
+            PaysID = request.PaysID,
             VilleID = request.VilleID,
+            Address = request.Address,
+            PostalCode = request.PostalCode,
+            ManagerId = request.ManagerId,
+            OpeningDate = request.OpeningDate,
+            Statut = request.Statut,
             RequestUser = _currentUser.CodeUser!,
             PreviousData = JsonSerializer.Serialize(existing),
             NewData = JsonSerializer.Serialize(request)
@@ -105,6 +121,13 @@ public class AgenceController : ControllerBase
         var existing = await _db.Agences.FirstOrDefaultAsync(a => a.AgenceID == id)
             ?? throw new KeyNotFoundException("Agence not found.");
 
+        // Protect referential integrity: block deletion if any user/collector/client uses this agency.
+        var isReferenced = await _db.Users.IgnoreQueryFilters().AnyAsync(u => u.AgenceID == id)
+            || await _db.Collectors.IgnoreQueryFilters().AnyAsync(c => c.AgenceID == id)
+            || await _db.Clients.IgnoreQueryFilters().AnyAsync(c => c.AgenceID == id);
+        if (isReferenced)
+            return BadRequest(new { message = "Impossible de supprimer cette agence car elle est déjà utilisée par des utilisateurs, collecteurs ou clients." });
+
         var draft = new AgenceTmp
         {
             ActionType = PendingActionType.DELETE,
@@ -116,6 +139,17 @@ public class AgenceController : ControllerBase
         _db.AgenceTmps.Add(draft);
         await _db.SaveChangesAsync();
         return Ok(new { message = "Suppression soumise pour validation.", pendingId = draft.PendingID });
+    }
+
+    [HttpGet("pending")]
+    [Authorize(Policy = "AdminOnly")]
+    public async Task<ActionResult<IEnumerable<AgenceTmp>>> GetPending()
+    {
+        var pending = await _db.AgenceTmps
+            .Where(t => t.PendingStatus == PendingStatusEnum.PENDING)
+            .OrderBy(t => t.RequestDate)
+            .ToListAsync();
+        return Ok(pending);
     }
 
     [HttpPost("pending/{pendingId:int}/approve")]
@@ -134,11 +168,21 @@ public class AgenceController : ControllerBase
             {
                 CodeAgence = draft.CodeAgence!,
                 Nom = draft.Nom!,
-                Location = draft.Location,
-                ContactInfo = draft.ContactInfo,
-                CodeIMF = draft.CodeIMF!,
+                ShortName = draft.ShortName,
+                Description = draft.Description,
+                LogoBase64 = draft.LogoBase64,
+                PrimaryPhone = draft.PrimaryPhone,
+                SecondaryPhone = draft.SecondaryPhone,
+                Email = draft.Email,
+                Website = draft.Website,
+                PaysID = draft.PaysID,
                 VilleID = draft.VilleID,
-                Statut = draft.Statut ?? "ACTIVE",
+                Address = draft.Address,
+                PostalCode = draft.PostalCode,
+                CodeIMF = draft.CodeIMF!,
+                ManagerId = draft.ManagerId,
+                OpeningDate = draft.OpeningDate,
+                Statut = "ACTIVE",
                 CreatedBy = draft.RequestUser
             });
         }
@@ -147,15 +191,37 @@ public class AgenceController : ControllerBase
             var existing = await _db.Agences.FirstOrDefaultAsync(a => a.AgenceID == draft.TargetAgenceID.Value)
                 ?? throw new KeyNotFoundException("Target agency no longer exists.");
             if (draft.Nom != null) existing.Nom = draft.Nom;
-            if (draft.Location != null) existing.Location = draft.Location;
-            if (draft.ContactInfo != null) existing.ContactInfo = draft.ContactInfo;
+            existing.ShortName = draft.ShortName;
+            existing.Description = draft.Description;
+            if (draft.LogoBase64 != null) existing.LogoBase64 = draft.LogoBase64;
+            existing.PrimaryPhone = draft.PrimaryPhone;
+            existing.SecondaryPhone = draft.SecondaryPhone;
+            existing.Email = draft.Email;
+            existing.Website = draft.Website;
+            existing.PaysID = draft.PaysID;
+            existing.VilleID = draft.VilleID;
+            existing.Address = draft.Address;
+            existing.PostalCode = draft.PostalCode;
+            existing.ManagerId = draft.ManagerId;
+            existing.OpeningDate = draft.OpeningDate;
             if (draft.Statut != null) existing.Statut = draft.Statut;
+            existing.UpdatedBy = _currentUser.CodeUser;
+            existing.UpdatedDate = DateTime.UtcNow;
         }
         else if (draft.ActionType == PendingActionType.DELETE && draft.TargetAgenceID.HasValue)
         {
             var existing = await _db.Agences.FirstOrDefaultAsync(a => a.AgenceID == draft.TargetAgenceID.Value)
                 ?? throw new KeyNotFoundException("Target agency no longer exists.");
+
+            var isReferenced = await _db.Users.IgnoreQueryFilters().AnyAsync(u => u.AgenceID == existing.AgenceID)
+                || await _db.Collectors.IgnoreQueryFilters().AnyAsync(c => c.AgenceID == existing.AgenceID)
+                || await _db.Clients.IgnoreQueryFilters().AnyAsync(c => c.AgenceID == existing.AgenceID);
+            if (isReferenced)
+                return BadRequest(new { message = "Impossible de valider : cette agence est désormais utilisée." });
+
             existing.Statut = "INACTIVE";
+            existing.UpdatedBy = _currentUser.CodeUser;
+            existing.UpdatedDate = DateTime.UtcNow;
         }
 
         draft.PendingStatus = PendingStatusEnum.APPROVED;
@@ -163,7 +229,7 @@ public class AgenceController : ControllerBase
         draft.ValidationDate = DateTime.UtcNow;
 
         await _db.SaveChangesAsync();
-        return Ok(new { message = "Agence validée et créée en production." });
+        return Ok(new { message = "Agence validée." });
     }
 
     [HttpPost("pending/{pendingId:int}/reject")]

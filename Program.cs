@@ -54,6 +54,13 @@ builder.Services.AddAuthentication(options =>
 })
 .AddJwtBearer(options =>
 {
+    // Without this, ASP.NET Core silently remaps the "role" claim to the long
+    // ClaimTypes.Role URI when parsing the token, which makes every
+    // RequireClaim("role", ...) policy below fail to find it -> mysterious
+    // 403s with no server-side exception (the claim literally isn't there
+    // under the name the policy is looking for).
+    options.MapInboundClaims = false;
+
     options.TokenValidationParameters = new TokenValidationParameters
     {
         ValidateIssuer = true,
