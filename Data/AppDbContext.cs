@@ -67,6 +67,7 @@ public class AppDbContext : DbContext
     public DbSet<CommissionTypeTmp> CommissionTypeTmps => Set<CommissionTypeTmp>();
     public DbSet<CommissionRangeTmp> CommissionRangeTmps => Set<CommissionRangeTmp>();
     public DbSet<AgenceTmp> AgenceTmps => Set<AgenceTmp>();
+    public DbSet<RoleTmp> RoleTmps => Set<RoleTmp>();
     public DbSet<IMFTmp> IMFTmps => Set<IMFTmp>();
     public DbSet<TransactionsTMP> TransactionsTMPs => Set<TransactionsTMP>();
 
@@ -107,6 +108,7 @@ public class AppDbContext : DbContext
         modelBuilder.Entity<CommissionTypeTmp>().ToTable("CommissionTypeTmp");
         modelBuilder.Entity<CommissionRangeTmp>().ToTable("CommissionRangeTmp");
         modelBuilder.Entity<AgenceTmp>().ToTable("AgenceTmp");
+        modelBuilder.Entity<RoleTmp>().ToTable("RoleTmp");
         modelBuilder.Entity<IMFTmp>().ToTable("IMFTmp");
         modelBuilder.Entity<TransactionsTMP>().ToTable("TransactionsTMP");
 
@@ -146,6 +148,7 @@ public class AppDbContext : DbContext
         modelBuilder.Entity<CommissionTypeTmp>().HasKey(x => x.PendingID);
         modelBuilder.Entity<CommissionRangeTmp>().HasKey(x => x.PendingID);
         modelBuilder.Entity<AgenceTmp>().HasKey(x => x.PendingID);
+        modelBuilder.Entity<RoleTmp>().HasKey(x => x.PendingID);
         modelBuilder.Entity<IMFTmp>().HasKey(x => x.PendingID);
         modelBuilder.Entity<TransactionsTMP>().HasKey(x => x.PendingID);
 

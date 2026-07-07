@@ -9,6 +9,8 @@ public class Role
     public bool Statut { get; set; } = true;
     public string? CreatedBy { get; set; }
     public DateTime CreatedDate { get; set; } = DateTime.UtcNow;
+    public string? UpdatedBy { get; set; }
+    public DateTime? UpdatedDate { get; set; }
 }
 
 public class Fonctionnalite
