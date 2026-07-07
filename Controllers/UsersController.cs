@@ -25,20 +25,45 @@ public class UsersController : ControllerBase
         _currentUser = currentUser;
     }
 
+    private static UserFullDto ToDto(Entities.Users u) => new(
+        u.CodeUser, u.Username, u.Email, u.Phone, u.Adresse, u.CNI, u.Photo,
+        u.RoleID, u.Role?.Code ?? "", u.Role?.Libelle,
+        u.FirstName, u.LastName, u.TypeUser,
+        u.AgenceID, u.Agence?.Nom, u.Agence?.CodeIMF,
+        u.DebitMax, u.CreditMax, u.ValidationMax, u.PlafondCollect, u.Caution,
+        u.Signe, u.ValidationStatus, u.Statut,
+        u.CreatedBy, u.CreatedDate, u.LastLogin,
+        u.UserValidation, u.DateValidation,
+        u.LastUserModif, u.DateModification,
+        u.LastDateSupervise, u.LastUserSupervise
+    );
+
     // Auto agency-scoped via the Users global query filter in AppDbContext
     [HttpGet]
     public async Task<ActionResult<IEnumerable<UserFullDto>>> GetAll()
     {
-        var result = await _db.Users.Include(u => u.Role)
-            .Select(u => new UserFullDto(u.CodeUser, u.Username, u.Email, u.Phone, u.Adresse, u.CNI, u.Role!.Code, u.AgenceID, u.ValidationStatus, u.Statut))
-            .ToListAsync();
-        return Ok(result);
+        var result = await _db.Users.Include(u => u.Role).Include(u => u.Agence).ToListAsync();
+        return Ok(result.Select(ToDto));
     }
 
     [HttpPost]
     [Authorize(Policy = "SupervisorOrAdmin")]
     public async Task<ActionResult> Create(CreateUserRequest request)
     {
+        if (request.Password != request.ConfirmPassword)
+            return BadRequest(new { message = "Le mot de passe et sa confirmation ne correspondent pas." });
+
+        var usernameTaken = await _db.Users.IgnoreQueryFilters().AnyAsync(u => u.Username == request.Username);
+        if (usernameTaken)
+            return BadRequest(new { message = "Ce nom d'utilisateur existe déjà." });
+
+        if (!string.IsNullOrWhiteSpace(request.Email))
+        {
+            var emailTaken = await _db.Users.IgnoreQueryFilters().AnyAsync(u => u.Email == request.Email);
+            if (emailTaken)
+                return BadRequest(new { message = "Cet email est déjà utilisé." });
+        }
+
         // Hash immediately; the plain password is never persisted anywhere,
         // including the NewData audit snapshot below.
         var passwordHash = BCrypt.Net.BCrypt.HashPassword(request.Password);
@@ -52,8 +77,18 @@ public class UsersController : ControllerBase
             Phone = request.Phone,
             Adresse = request.Adresse,
             CNI = request.CNI,
+            Photo = request.Photo,
+            Signe = request.Signe,
             RoleID = request.RoleID,
-            AgenceID = _currentUser.AgenceID,
+            AgenceID = request.AgenceID ?? _currentUser.AgenceID,
+            FirstName = request.FirstName,
+            LastName = request.LastName,
+            TypeUser = request.TypeUser,
+            DebitMax = request.DebitMax,
+            CreditMax = request.CreditMax,
+            ValidationMax = request.ValidationMax,
+            PlafondCollect = request.PlafondCollect,
+            Caution = request.Caution,
             Statut = "ACTIVE",
             RequestUser = _currentUser.CodeUser!,
             NewData = JsonSerializer.Serialize(new { request.Username, request.Email, request.Phone, request.RoleID })
@@ -87,8 +122,15 @@ public class UsersController : ControllerBase
     [Authorize(Policy = "SupervisorOrAdmin")]
     public async Task<ActionResult> Update(string codeUser, UpdateUserRequest request)
     {
-        var existing = await _db.Users.FirstOrDefaultAsync(u => u.CodeUser == codeUser)
-            ?? throw new KeyNotFoundException("User not found in your agency.");
+        var existing = await _db.Users.IgnoreQueryFilters().FirstOrDefaultAsync(u => u.CodeUser == codeUser)
+            ?? throw new KeyNotFoundException("User not found.");
+
+        if (!string.IsNullOrWhiteSpace(request.Email))
+        {
+            var emailTaken = await _db.Users.IgnoreQueryFilters().AnyAsync(u => u.Email == request.Email && u.CodeUser != codeUser);
+            if (emailTaken)
+                return BadRequest(new { message = "Cet email est déjà utilisé par un autre utilisateur." });
+        }
 
         var draft = new UsersTmp
         {
@@ -98,10 +140,20 @@ public class UsersController : ControllerBase
             Phone = request.Phone,
             Adresse = request.Adresse,
             CNI = request.CNI,
+            Photo = request.Photo,
+            Signe = request.Signe,
             RoleID = request.RoleID,
+            AgenceID = request.AgenceID ?? existing.AgenceID,
+            FirstName = request.FirstName,
+            LastName = request.LastName,
+            TypeUser = request.TypeUser,
+            DebitMax = request.DebitMax,
+            CreditMax = request.CreditMax,
+            ValidationMax = request.ValidationMax,
+            PlafondCollect = request.PlafondCollect,
+            Caution = request.Caution,
             Statut = request.Statut,
             PasswordHash = string.IsNullOrWhiteSpace(request.NewPassword) ? null : BCrypt.Net.BCrypt.HashPassword(request.NewPassword),
-            AgenceID = existing.AgenceID,
             RequestUser = _currentUser.CodeUser!,
             PreviousData = JsonSerializer.Serialize(new { existing.Email, existing.Phone, existing.RoleID, existing.Statut }),
             NewData = JsonSerializer.Serialize(new { request.Email, request.Phone, request.RoleID, request.Statut })
@@ -116,8 +168,8 @@ public class UsersController : ControllerBase
     [Authorize(Policy = "SupervisorOrAdmin")]
     public async Task<ActionResult> Delete(string codeUser)
     {
-        var existing = await _db.Users.FirstOrDefaultAsync(u => u.CodeUser == codeUser)
-            ?? throw new KeyNotFoundException("User not found in your agency.");
+        var existing = await _db.Users.IgnoreQueryFilters().FirstOrDefaultAsync(u => u.CodeUser == codeUser)
+            ?? throw new KeyNotFoundException("User not found.");
 
         var draft = new UsersTmp
         {
@@ -145,6 +197,10 @@ public class UsersController : ControllerBase
 
         if (draft.ActionType == PendingActionType.CREATE)
         {
+            var usernameTaken = await _db.Users.IgnoreQueryFilters().AnyAsync(u => u.Username == draft.Username);
+            if (usernameTaken)
+                return BadRequest(new { message = "Ce nom d'utilisateur existe déjà — impossible de valider." });
+
             var count = await _db.Users.IgnoreQueryFilters().CountAsync();
             var newId = $"U-{(count + 1):D3}";
 
@@ -157,11 +213,23 @@ public class UsersController : ControllerBase
                 Phone = draft.Phone,
                 Adresse = draft.Adresse,
                 CNI = draft.CNI,
+                Photo = draft.Photo,
+                Signe = draft.Signe,
                 RoleID = draft.RoleID!.Value,
                 AgenceID = draft.AgenceID,
+                FirstName = draft.FirstName,
+                LastName = draft.LastName,
+                TypeUser = draft.TypeUser,
+                DebitMax = draft.DebitMax,
+                CreditMax = draft.CreditMax,
+                ValidationMax = draft.ValidationMax,
+                PlafondCollect = draft.PlafondCollect,
+                Caution = draft.Caution,
                 Statut = draft.Statut ?? "ACTIVE",
                 ValidationStatus = "VALIDATED",
-                CreatedBy = draft.RequestUser
+                CreatedBy = draft.RequestUser,
+                UserValidation = _currentUser.CodeUser,
+                DateValidation = DateTime.UtcNow
             });
         }
         else if (draft.ActionType == PendingActionType.UPDATE && draft.TargetCodeUser != null)
@@ -172,9 +240,22 @@ public class UsersController : ControllerBase
             if (draft.Phone != null) existing.Phone = draft.Phone;
             if (draft.Adresse != null) existing.Adresse = draft.Adresse;
             if (draft.CNI != null) existing.CNI = draft.CNI;
+            if (draft.Photo != null) existing.Photo = draft.Photo;
+            if (draft.Signe != null) existing.Signe = draft.Signe;
             if (draft.RoleID.HasValue) existing.RoleID = draft.RoleID.Value;
+            if (draft.AgenceID.HasValue) existing.AgenceID = draft.AgenceID;
+            if (draft.FirstName != null) existing.FirstName = draft.FirstName;
+            if (draft.LastName != null) existing.LastName = draft.LastName;
+            if (draft.TypeUser != null) existing.TypeUser = draft.TypeUser;
+            if (draft.DebitMax.HasValue) existing.DebitMax = draft.DebitMax;
+            if (draft.CreditMax.HasValue) existing.CreditMax = draft.CreditMax;
+            if (draft.ValidationMax.HasValue) existing.ValidationMax = draft.ValidationMax;
+            if (draft.PlafondCollect.HasValue) existing.PlafondCollect = draft.PlafondCollect;
+            if (draft.Caution.HasValue) existing.Caution = draft.Caution;
             if (draft.Statut != null) existing.Statut = draft.Statut;
             if (draft.PasswordHash != null) existing.PasswordHash = draft.PasswordHash;
+            existing.LastUserModif = _currentUser.CodeUser;
+            existing.DateModification = DateTime.UtcNow;
         }
         else if (draft.ActionType == PendingActionType.DELETE && draft.TargetCodeUser != null)
         {
@@ -182,6 +263,8 @@ public class UsersController : ControllerBase
             var existing = await _db.Users.IgnoreQueryFilters().FirstOrDefaultAsync(u => u.CodeUser == draft.TargetCodeUser)
                 ?? throw new KeyNotFoundException("Target user no longer exists.");
             existing.Statut = "INACTIVE";
+            existing.LastUserModif = _currentUser.CodeUser;
+            existing.DateModification = DateTime.UtcNow;
         }
 
         draft.PendingStatus = PendingStatusEnum.APPROVED;

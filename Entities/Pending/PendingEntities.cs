@@ -34,6 +34,15 @@ public class UsersTmp : PendingBase
     public int? RoleID { get; set; }
     public int? AgenceID { get; set; }
     public string? Statut { get; set; }
+    public string? FirstName { get; set; }
+    public string? LastName { get; set; }
+    public string? TypeUser { get; set; }
+    public decimal? DebitMax { get; set; }
+    public decimal? CreditMax { get; set; }
+    public decimal? ValidationMax { get; set; }
+    public decimal? PlafondCollect { get; set; }
+    public decimal? Caution { get; set; }
+    public string? Signe { get; set; }
 }
 
 public class CollectorTMP : PendingBase

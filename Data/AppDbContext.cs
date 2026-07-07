@@ -300,6 +300,16 @@ public class AppDbContext : DbContext
         modelBuilder.Entity<CommissionRangeTmp>().Property(x => x.PercentageRate).HasColumnType("decimal(5,2)");
         modelBuilder.Entity<IMFTmp>().Property(x => x.TauxTaxe).HasColumnType("decimal(5,2)");
         modelBuilder.Entity<TransactionsTMP>().Property(x => x.Montant).HasColumnType("decimal(18,2)");
+        modelBuilder.Entity<Users>().Property(x => x.DebitMax).HasColumnType("decimal(18,2)");
+        modelBuilder.Entity<Users>().Property(x => x.CreditMax).HasColumnType("decimal(18,2)");
+        modelBuilder.Entity<Users>().Property(x => x.ValidationMax).HasColumnType("decimal(18,2)");
+        modelBuilder.Entity<Users>().Property(x => x.PlafondCollect).HasColumnType("decimal(18,2)");
+        modelBuilder.Entity<Users>().Property(x => x.Caution).HasColumnType("decimal(18,2)");
+        modelBuilder.Entity<UsersTmp>().Property(x => x.DebitMax).HasColumnType("decimal(18,2)");
+        modelBuilder.Entity<UsersTmp>().Property(x => x.CreditMax).HasColumnType("decimal(18,2)");
+        modelBuilder.Entity<UsersTmp>().Property(x => x.ValidationMax).HasColumnType("decimal(18,2)");
+        modelBuilder.Entity<UsersTmp>().Property(x => x.PlafondCollect).HasColumnType("decimal(18,2)");
+        modelBuilder.Entity<UsersTmp>().Property(x => x.Caution).HasColumnType("decimal(18,2)");
 
         // =====================================================================
         // AGENCY SCOPING: global query filters.

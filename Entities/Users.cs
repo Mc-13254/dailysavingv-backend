@@ -13,15 +13,38 @@ public class Users
     public int RoleID { get; set; }
     public Role? Role { get; set; }
 
+    // Personal information
+    public string? FirstName { get; set; }
+    public string? LastName { get; set; }
+    public string? TypeUser { get; set; } // Administrator/Manager/Cashier/Collector/Supervisor/Auditor
+
     // Nullable only for HQ/Admin users who are not tied to a single agency
     public int? AgenceID { get; set; }
     public Agence? Agence { get; set; }
+
+    // Financial settings
+    public decimal? DebitMax { get; set; }
+    public decimal? CreditMax { get; set; }
+    public decimal? ValidationMax { get; set; }
+    public decimal? PlafondCollect { get; set; }
+    public decimal? Caution { get; set; }
+
+    // Attachments
+    public string? Signe { get; set; } // signature (base64)
 
     public string Statut { get; set; } = "ACTIVE";
     public string ValidationStatus { get; set; } = "VALIDATED";
     public string? CreatedBy { get; set; }
     public DateTime CreatedDate { get; set; } = DateTime.UtcNow;
     public DateTime? LastLogin { get; set; }
+
+    // Audit trail
+    public string? UserValidation { get; set; }
+    public DateTime? DateValidation { get; set; }
+    public string? LastUserModif { get; set; }
+    public DateTime? DateModification { get; set; }
+    public DateTime? LastDateSupervise { get; set; }
+    public string? LastUserSupervise { get; set; }
 }
 
 public class RefreshToken
