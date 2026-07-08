@@ -71,6 +71,8 @@ public class Client
     public Agence? Agence { get; set; }
 
     public string? CollectorID { get; set; }
+    public int? ZoneCollecteID { get; set; }   // NEW: zone the client belongs to (drives Collector inheritance)
+    public ZoneCollecte? ZoneCollecte { get; set; }
     public string ValidationStatus { get; set; } = "PENDING";
     public string? CreatedBy { get; set; }
     public DateTime CreatedDate { get; set; } = DateTime.UtcNow;

@@ -57,9 +57,22 @@ public class ZoneCollecte
     public string Code { get; set; } = null!;
     public string? Libelle { get; set; }
     public int? VilleID { get; set; }
+    public Ville? Ville { get; set; }
     public bool Statut { get; set; } = true;
     public string? UserCreate { get; set; }
     public DateTime CreateDate { get; set; } = DateTime.UtcNow;
+
+    // ---- Added for the Collector Assignment / world map module ----
+    public string? Description { get; set; }
+    public string? District { get; set; }       // finer-grained than Ville, free text
+    public string? Neighborhood { get; set; }
+    public string? Village { get; set; }
+    public decimal? Latitude { get; set; }
+    public decimal? Longitude { get; set; }
+    public string? ShapeType { get; set; }       // Polygon | Circle | Rectangle | Point
+    public string? PolygonCoordinates { get; set; } // GeoJSON-style [[lat,lng],...] stored as text
+    public decimal? RadiusMeters { get; set; }    // used when ShapeType = Circle
+    public int? AgenceID { get; set; }            // agency that owns/created this zone
 }
 
 public class Currency

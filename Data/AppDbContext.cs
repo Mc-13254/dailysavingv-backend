@@ -57,6 +57,11 @@ public class AppDbContext : DbContext
     public DbSet<CommissionType> CommissionTypes => Set<CommissionType>();
     public DbSet<CommissionRange> CommissionRanges => Set<CommissionRange>();
 
+    // Collector Zone Assignment & Performance (new modules)
+    public DbSet<CollectorZoneAssignment> CollectorZoneAssignments => Set<CollectorZoneAssignment>();
+    public DbSet<ZoneAssignmentHistory> ZoneAssignmentHistories => Set<ZoneAssignmentHistory>();
+    public DbSet<CollectorTarget> CollectorTargets => Set<CollectorTarget>();
+
     // Transactions & audit
     public DbSet<Transactions> Transactions => Set<Transactions>();
     public DbSet<HistTransactions> HistTransactions => Set<HistTransactions>();
@@ -106,6 +111,9 @@ public class AppDbContext : DbContext
         modelBuilder.Entity<Contract>().ToTable("Contract");
         modelBuilder.Entity<CommissionType>().ToTable("CommissionType");
         modelBuilder.Entity<CommissionRange>().ToTable("CommissionRange");
+        modelBuilder.Entity<CollectorZoneAssignment>().ToTable("CollectorZoneAssignment");
+        modelBuilder.Entity<ZoneAssignmentHistory>().ToTable("ZoneAssignmentHistory");
+        modelBuilder.Entity<CollectorTarget>().ToTable("CollectorTarget");
         modelBuilder.Entity<Activite>().ToTable("Activite");
         modelBuilder.Entity<UsersTmp>().ToTable("UsersTmp");
         modelBuilder.Entity<CollectorTMP>().ToTable("CollectorTMP");
@@ -437,6 +445,18 @@ public class AppDbContext : DbContext
         modelBuilder.Entity<UsersTmp>().Property(x => x.PlafondCollect).HasColumnType("decimal(18,2)");
         modelBuilder.Entity<UsersTmp>().Property(x => x.Caution).HasColumnType("decimal(18,2)");
 
+        modelBuilder.Entity<ZoneCollecte>().Property(x => x.Latitude).HasColumnType("decimal(9,6)");
+        modelBuilder.Entity<ZoneCollecte>().Property(x => x.Longitude).HasColumnType("decimal(9,6)");
+        modelBuilder.Entity<ZoneCollecte>().Property(x => x.RadiusMeters).HasColumnType("decimal(10,2)");
+        modelBuilder.Entity<CollectorTarget>().Property(x => x.TargetAmount).HasColumnType("decimal(18,2)");
+
+        // Business rule: at most one ACTIVE collector per zone at a time, so a
+        // Client's effective collector (inherited via its Zone) is unambiguous.
+        modelBuilder.Entity<CollectorZoneAssignment>()
+            .HasIndex(x => x.ZoneCollecteID)
+            .HasFilter("[Status] = 'ACTIVE'")
+            .IsUnique();
+
         // =====================================================================
         // AGENCY SCOPING: global query filters.
         // These make EVERY LINQ query against these DbSets automatically drop
@@ -458,5 +478,10 @@ public class AppDbContext : DbContext
 
         modelBuilder.Entity<Users>()
             .HasQueryFilter(x => _currentUser.IsHeadOffice || x.AgenceID == _currentUser.AgenceID);
+
+        // Zones created by an agency are only visible to that agency (HQ sees all).
+        // Zones with AgenceID == null are treated as global/shared zones.
+        modelBuilder.Entity<ZoneCollecte>()
+            .HasQueryFilter(x => _currentUser.IsHeadOffice || x.AgenceID == null || x.AgenceID == _currentUser.AgenceID);
     }
 }
