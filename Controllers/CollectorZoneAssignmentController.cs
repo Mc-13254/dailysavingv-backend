@@ -31,6 +31,7 @@ public class CollectorZoneAssignmentController : ControllerBase
 
         var assignments = await _db.CollectorZoneAssignments
             .Include(a => a.ZoneCollecte).ThenInclude(z => z!.Ville)
+            .Include(a => a.ZoneCollecte).ThenInclude(z => z!.Pays)
             .Where(a => a.CollectorID == collectorId && a.Status == "ACTIVE")
             .ToListAsync();
 
@@ -43,6 +44,7 @@ public class CollectorZoneAssignmentController : ControllerBase
                 .CountAsync(x => x.ZoneCollecteID == a.ZoneCollecteID && x.Status == "ACTIVE");
             zoneDtos.Add(new ZoneDto(
                 a.ZoneCollecte.ZoneCollecteID, a.ZoneCollecte.Code, a.ZoneCollecte.Libelle, a.ZoneCollecte.Description,
+                a.ZoneCollecte.PaysID, a.ZoneCollecte.Pays?.Nom,
                 a.ZoneCollecte.VilleID, a.ZoneCollecte.Ville?.Nom, a.ZoneCollecte.District, a.ZoneCollecte.Neighborhood,
                 a.ZoneCollecte.Village, a.ZoneCollecte.Latitude, a.ZoneCollecte.Longitude, a.ZoneCollecte.ShapeType,
                 a.ZoneCollecte.PolygonCoordinates, a.ZoneCollecte.RadiusMeters, a.ZoneCollecte.Statut, clientCount, activeCollectors
