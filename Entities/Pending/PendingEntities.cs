@@ -85,6 +85,7 @@ public class ClientTmp : PendingBase
     public string? TargetClientID { get; set; }
     public string? Nom { get; set; }
     public string? Prenom { get; set; }
+    public string? MiddleName { get; set; }
     public string? Sexe { get; set; }
     public string? Image { get; set; }
     public string? PhoneNumber { get; set; }
@@ -98,6 +99,70 @@ public class ClientTmp : PendingBase
     public string? NumeroCNI { get; set; }
     public int? AgenceID { get; set; }
     public string? CollectorID { get; set; }
+
+    public DateTime? DateOfBirth { get; set; }
+    public string? PlaceOfBirth { get; set; }
+    public string? Nationality { get; set; }
+    public string? MaritalStatus { get; set; }
+    public string? Profession { get; set; }
+    public string? Occupation { get; set; }
+    public string? Employer { get; set; }
+    public string? EducationLevel { get; set; }
+    public decimal? MonthlyIncome { get; set; }
+
+    public string? SecondaryPhone { get; set; }
+    public string? WhatsApp { get; set; }
+    public string? Country { get; set; }
+    public string? City { get; set; }
+    public string? District { get; set; }
+    public string? Neighborhood { get; set; }
+    public string? Street { get; set; }
+    public string? HouseNumber { get; set; }
+    public string? PostalCode { get; set; }
+    public decimal? Latitude { get; set; }
+    public decimal? Longitude { get; set; }
+
+    public DateTime? NationalIDIssueDate { get; set; }
+    public DateTime? NationalIDExpiryDate { get; set; }
+    public string? PassportNumber { get; set; }
+    public string? DriverLicenseNumber { get; set; }
+    public string? TaxIdentificationNumber { get; set; }
+    public string? SocialSecurityNumber { get; set; }
+    public string? DocumentType { get; set; }
+    public string? IssuedBy { get; set; }
+
+    public string? NationalIDFrontUrl { get; set; }
+    public string? NationalIDBackUrl { get; set; }
+    public string? PassportUrl { get; set; }
+    public string? ProofOfAddressUrl { get; set; }
+    public string? SignatureUrl { get; set; }
+
+    public string? BusinessName { get; set; }
+    public string? BusinessAddress { get; set; }
+    public string? BusinessType { get; set; }
+    public int? YearsInBusiness { get; set; }
+    public decimal? MonthlyRevenue { get; set; }
+    public decimal? MonthlyExpenses { get; set; }
+
+    public string? ClientCategory { get; set; }
+    public string? AccountOfficer { get; set; }
+
+    public string? EmergencyContactName { get; set; }
+    public string? EmergencyContactRelationship { get; set; }
+    public string? EmergencyContactPhone { get; set; }
+    public string? EmergencyContactAddress { get; set; }
+
+    public string? GuarantorName { get; set; }
+    public string? GuarantorRelationship { get; set; }
+    public string? GuarantorPhone { get; set; }
+    public string? GuarantorOccupation { get; set; }
+    public string? GuarantorEmployer { get; set; }
+    public string? GuarantorAddress { get; set; }
+
+    public string? RiskLevel { get; set; }
+    public bool? IsPoliticallyExposed { get; set; }
+    public bool? IsBlacklisted { get; set; }
+    public string? AMLStatus { get; set; }
 }
 
 public class AccountsTMP : PendingBase
@@ -105,7 +170,22 @@ public class AccountsTMP : PendingBase
     public string? TargetAccountID { get; set; }
     public string? ClientID { get; set; }
     public string? NumCarnet { get; set; }
+    public int? ContractID { get; set; }
+    public string? CollectorID { get; set; }
+    public string? AccountType { get; set; }
+    public string? Currency { get; set; }
+    public decimal? OpeningBalance { get; set; }
     public decimal? Balance { get; set; }
+    public decimal? AvailableBalance { get; set; }
+    public decimal? BlockedBalance { get; set; }
+    public decimal? MinimumBalance { get; set; }
+    public decimal? MaximumBalance { get; set; }
+    public decimal? DailyDepositLimit { get; set; }
+    public decimal? DailyWithdrawalLimit { get; set; }
+    public decimal? DailyTransactionLimit { get; set; }
+    public bool? OverdraftAllowed { get; set; }
+    public decimal? OverdraftLimit { get; set; }
+    public string? Status { get; set; }
     public bool? Active { get; set; }
     public int? AgenceID { get; set; }
 }
@@ -116,9 +196,20 @@ public class ContractTmp : PendingBase
     public string? ContractNumber { get; set; }
     public string? ClientID { get; set; }
     public int? AgenceID { get; set; }
+    public string? CollectorID { get; set; }
+    public int? CommissionTypeID { get; set; }
+    public int? CommissionRangeID { get; set; }
+    public string? CollectionFrequency { get; set; }
+    public string? CollectionDay { get; set; }
+    public decimal? OpeningDeposit { get; set; }
+    public decimal? MinimumBalance { get; set; }
+    public decimal? MaximumBalance { get; set; }
+    public string? PenaltyRules { get; set; }
+    public int? GracePeriod { get; set; }
     public DateTime? StartDate { get; set; }
     public DateTime? EndDate { get; set; }
     public string? ContractType { get; set; }
+    public int? ContractTypeID { get; set; }
     public string? ContractDetails { get; set; }
     public string? Description { get; set; }
     public string? Statut { get; set; }

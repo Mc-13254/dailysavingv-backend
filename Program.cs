@@ -101,6 +101,7 @@ if (app.Environment.IsDevelopment())
 }
 
 app.UseHttpsRedirection();
+app.UseStaticFiles(); // serves /uploads/clients/* (KYC documents, photos, signatures)
 app.UseCors("Frontend");
 app.UseAuthentication();
 app.UseAuthorization();

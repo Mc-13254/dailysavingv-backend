@@ -394,6 +394,49 @@ public class AppDbContext : DbContext
         modelBuilder.Entity<CommissionRange>().Property(x => x.Minimum).HasColumnType("decimal(18,2)");
         modelBuilder.Entity<CommissionRange>().Property(x => x.Maximum).HasColumnType("decimal(18,2)");
         modelBuilder.Entity<Accounts>().Property(x => x.Balance).HasColumnType("decimal(18,2)");
+        modelBuilder.Entity<Accounts>().Property(x => x.OpeningBalance).HasColumnType("decimal(18,2)");
+        modelBuilder.Entity<Accounts>().Property(x => x.AvailableBalance).HasColumnType("decimal(18,2)");
+        modelBuilder.Entity<Accounts>().Property(x => x.BlockedBalance).HasColumnType("decimal(18,2)");
+        modelBuilder.Entity<Accounts>().Property(x => x.MinimumBalance).HasColumnType("decimal(18,2)");
+        modelBuilder.Entity<Accounts>().Property(x => x.MaximumBalance).HasColumnType("decimal(18,2)");
+        modelBuilder.Entity<Accounts>().Property(x => x.DailyDepositLimit).HasColumnType("decimal(18,2)");
+        modelBuilder.Entity<Accounts>().Property(x => x.DailyWithdrawalLimit).HasColumnType("decimal(18,2)");
+        modelBuilder.Entity<Accounts>().Property(x => x.DailyTransactionLimit).HasColumnType("decimal(18,2)");
+        modelBuilder.Entity<Accounts>().Property(x => x.OverdraftLimit).HasColumnType("decimal(18,2)");
+        modelBuilder.Entity<AccountsTMP>().Property(x => x.Balance).HasColumnType("decimal(18,2)");
+        modelBuilder.Entity<AccountsTMP>().Property(x => x.OpeningBalance).HasColumnType("decimal(18,2)");
+        modelBuilder.Entity<AccountsTMP>().Property(x => x.AvailableBalance).HasColumnType("decimal(18,2)");
+        modelBuilder.Entity<AccountsTMP>().Property(x => x.BlockedBalance).HasColumnType("decimal(18,2)");
+        modelBuilder.Entity<AccountsTMP>().Property(x => x.MinimumBalance).HasColumnType("decimal(18,2)");
+        modelBuilder.Entity<AccountsTMP>().Property(x => x.MaximumBalance).HasColumnType("decimal(18,2)");
+        modelBuilder.Entity<AccountsTMP>().Property(x => x.DailyDepositLimit).HasColumnType("decimal(18,2)");
+        modelBuilder.Entity<AccountsTMP>().Property(x => x.DailyWithdrawalLimit).HasColumnType("decimal(18,2)");
+        modelBuilder.Entity<AccountsTMP>().Property(x => x.DailyTransactionLimit).HasColumnType("decimal(18,2)");
+        modelBuilder.Entity<AccountsTMP>().Property(x => x.OverdraftLimit).HasColumnType("decimal(18,2)");
+        modelBuilder.Entity<Contract>().Property(x => x.OpeningDeposit).HasColumnType("decimal(18,2)");
+        modelBuilder.Entity<Contract>().Property(x => x.MinimumBalance).HasColumnType("decimal(18,2)");
+        modelBuilder.Entity<Contract>().Property(x => x.MaximumBalance).HasColumnType("decimal(18,2)");
+        modelBuilder.Entity<ContractTmp>().Property(x => x.OpeningDeposit).HasColumnType("decimal(18,2)");
+        modelBuilder.Entity<ContractTmp>().Property(x => x.MinimumBalance).HasColumnType("decimal(18,2)");
+        modelBuilder.Entity<ContractTmp>().Property(x => x.MaximumBalance).HasColumnType("decimal(18,2)");
+        modelBuilder.Entity<Client>().Property(x => x.MonthlyIncome).HasColumnType("decimal(18,2)");
+        modelBuilder.Entity<Client>().Property(x => x.MonthlyRevenue).HasColumnType("decimal(18,2)");
+        modelBuilder.Entity<Client>().Property(x => x.MonthlyExpenses).HasColumnType("decimal(18,2)");
+        modelBuilder.Entity<Client>().Property(x => x.Latitude).HasColumnType("decimal(9,6)");
+        modelBuilder.Entity<Client>().Property(x => x.Longitude).HasColumnType("decimal(9,6)");
+        modelBuilder.Entity<ClientTmp>().Property(x => x.MonthlyIncome).HasColumnType("decimal(18,2)");
+        modelBuilder.Entity<ClientTmp>().Property(x => x.MonthlyRevenue).HasColumnType("decimal(18,2)");
+        modelBuilder.Entity<ClientTmp>().Property(x => x.MonthlyExpenses).HasColumnType("decimal(18,2)");
+        modelBuilder.Entity<ClientTmp>().Property(x => x.Latitude).HasColumnType("decimal(9,6)");
+        modelBuilder.Entity<ClientTmp>().Property(x => x.Longitude).HasColumnType("decimal(9,6)");
+
+        // Business rules: unique National ID / phone (nulls allowed, so filtered).
+        modelBuilder.Entity<Client>().HasIndex(c => c.NumeroCNI).IsUnique().HasFilter("[NumeroCNI] IS NOT NULL");
+        modelBuilder.Entity<Client>().HasIndex(c => c.PhoneNumber).IsUnique().HasFilter("[PhoneNumber] IS NOT NULL");
+        // Only one ACTIVE contract per client.
+        modelBuilder.Entity<Contract>().HasIndex(c => c.ClientID).IsUnique().HasFilter("[Statut] = 'ACTIVE'");
+        // Only one account per contract.
+        modelBuilder.Entity<Accounts>().HasIndex(a => a.ContractID).IsUnique().HasFilter("[ContractID] IS NOT NULL");
         modelBuilder.Entity<Transactions>().Property(x => x.Montant).HasColumnType("decimal(18,2)");
         modelBuilder.Entity<Transactions>().Property(x => x.MontantCommission).HasColumnType("decimal(18,2)");
         modelBuilder.Entity<Collector>().Property(x => x.Plafond).HasColumnType("decimal(18,2)");
