@@ -63,6 +63,8 @@ public class ZoneCollecte
     public DateTime CreateDate { get; set; } = DateTime.UtcNow;
 
     // ---- Added for the Collector Assignment / world map module ----
+    public int? PaysID { get; set; }             // country the zone belongs to (drives Quartier suggestions)
+    public Pays? Pays { get; set; }
     public string? Description { get; set; }
     public string? District { get; set; }       // finer-grained than Ville, free text
     public string? Neighborhood { get; set; }

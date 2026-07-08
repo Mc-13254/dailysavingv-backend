@@ -26,7 +26,7 @@ public class ZoneController : ControllerBase
     [HttpGet]
     public async Task<ActionResult<IEnumerable<ZoneDto>>> GetAll([FromQuery] string? search)
     {
-        var query = _db.ZoneCollectes.Include(z => z.Ville).AsQueryable();
+        var query = _db.ZoneCollectes.Include(z => z.Ville).Include(z => z.Pays).AsQueryable();
         if (!string.IsNullOrWhiteSpace(search))
             query = query.Where(z =>
                 (z.Libelle != null && z.Libelle.Contains(search)) ||
@@ -45,9 +45,27 @@ public class ZoneController : ControllerBase
     [HttpGet("{id:int}")]
     public async Task<ActionResult<ZoneDto>> GetById(int id)
     {
-        var zone = await _db.ZoneCollectes.Include(z => z.Ville).FirstOrDefaultAsync(z => z.ZoneCollecteID == id);
+        var zone = await _db.ZoneCollectes.Include(z => z.Ville).Include(z => z.Pays).FirstOrDefaultAsync(z => z.ZoneCollecteID == id);
         if (zone == null) return NotFound();
         return Ok(await ToDto(zone));
+    }
+
+    // GET api/zone/districts?paysId=  -> distinct Quartier/Village values already used,
+    // so the create-zone form can offer them as a selection list instead of free text.
+    [HttpGet("districts")]
+    public async Task<ActionResult<IEnumerable<string>>> GetDistrictSuggestions([FromQuery] int? paysId)
+    {
+        var query = _db.ZoneCollectes.AsQueryable();
+        if (paysId.HasValue) query = query.Where(z => z.PaysID == paysId.Value);
+
+        var districts = await query
+            .Where(z => z.District != null && z.District != "")
+            .Select(z => z.District!)
+            .Distinct()
+            .OrderBy(d => d)
+            .ToListAsync();
+
+        return Ok(districts);
     }
 
     // GET api/zone/{id}/clients -> clients whose ZoneCollecteID = id (agency-scoped via Client filter)
@@ -84,6 +102,7 @@ public class ZoneController : ControllerBase
             Code = await GenerateNextZoneCode(),
             Libelle = request.Libelle,
             Description = request.Description,
+            PaysID = request.PaysID,
             VilleID = request.VilleID,
             District = request.District,
             Neighborhood = request.Neighborhood,
@@ -113,6 +132,7 @@ public class ZoneController : ControllerBase
 
         if (request.Libelle != null) zone.Libelle = request.Libelle;
         if (request.Description != null) zone.Description = request.Description;
+        if (request.PaysID.HasValue) zone.PaysID = request.PaysID;
         if (request.VilleID.HasValue) zone.VilleID = request.VilleID;
         if (request.District != null) zone.District = request.District;
         if (request.Neighborhood != null) zone.Neighborhood = request.Neighborhood;
@@ -149,7 +169,7 @@ public class ZoneController : ControllerBase
 
         return new ZoneDto(
             z.ZoneCollecteID, z.Code, z.Libelle, z.Description,
-            z.VilleID, z.Ville?.Nom, z.District, z.Neighborhood, z.Village,
+            z.PaysID, z.Pays?.Nom, z.VilleID, z.Ville?.Nom, z.District, z.Neighborhood, z.Village,
             z.Latitude, z.Longitude, z.ShapeType, z.PolygonCoordinates,
             z.RadiusMeters, z.Statut, clientCount, activeCollectors
         );
