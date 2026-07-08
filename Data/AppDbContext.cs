@@ -112,8 +112,11 @@ public class AppDbContext : DbContext
         modelBuilder.Entity<CommissionType>().ToTable("CommissionType");
         modelBuilder.Entity<CommissionRange>().ToTable("CommissionRange");
         modelBuilder.Entity<CollectorZoneAssignment>().ToTable("CollectorZoneAssignment");
+        modelBuilder.Entity<CollectorZoneAssignment>().HasKey(x => x.AssignmentID);
         modelBuilder.Entity<ZoneAssignmentHistory>().ToTable("ZoneAssignmentHistory");
+        modelBuilder.Entity<ZoneAssignmentHistory>().HasKey(x => x.HistoryID);
         modelBuilder.Entity<CollectorTarget>().ToTable("CollectorTarget");
+        modelBuilder.Entity<CollectorTarget>().HasKey(x => x.TargetID);
         modelBuilder.Entity<Activite>().ToTable("Activite");
         modelBuilder.Entity<UsersTmp>().ToTable("UsersTmp");
         modelBuilder.Entity<CollectorTMP>().ToTable("CollectorTMP");
