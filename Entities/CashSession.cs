@@ -26,7 +26,6 @@ public class CashSession
     public int CashSessionID { get; set; }
     public string SessionNumber { get; set; } = null!; // e.g. CS-20260709-U001
     public string CodeUser { get; set; } = null!;
-    public Users? User { get; set; }
     public int AgenceID { get; set; }
     public Agence? Agence { get; set; }
 
