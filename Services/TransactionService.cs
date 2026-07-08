@@ -34,6 +34,12 @@ public class TransactionService : ITransactionService
     /// </summary>
     public async Task<TransactionReceiptDto> CreateAndValidateAsync(CreateTransactionRequest request, string validatedByCodeUser)
     {
+        // Business rule (Cash Session module): no financial transaction can be
+        // performed before the user has opened their working day.
+        var session = await _db.CashSessions
+            .FirstOrDefaultAsync(s => s.CodeUser == validatedByCodeUser && s.Status == "OPEN")
+            ?? throw new InvalidOperationException("Vous devez ouvrir votre session de caisse avant d'effectuer une transaction.");
+
         var account = await _db.Accounts.FirstOrDefaultAsync(a => a.AccountID == request.AccountID)
             ?? throw new InvalidOperationException("Account not found or not in your agency.");
 
@@ -46,6 +52,7 @@ public class TransactionService : ITransactionService
             AccountID = account.AccountID,
             ClientID = account.ClientID,
             CollectorID = request.CollectorID,
+            CashSessionID = session.CashSessionID,
             AgenceID = _currentUser.AgenceID ?? account.AgenceID,
             Montant = request.Montant,
             CommissionTypeID = commission.CommissionTypeID,

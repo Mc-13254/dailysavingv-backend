@@ -65,6 +65,9 @@ public class AppDbContext : DbContext
     // Transactions & audit
     public DbSet<Transactions> Transactions => Set<Transactions>();
     public DbSet<HistTransactions> HistTransactions => Set<HistTransactions>();
+    public DbSet<BusinessCalendar> BusinessCalendars => Set<BusinessCalendar>();
+    public DbSet<CashSession> CashSessions => Set<CashSession>();
+    public DbSet<CashVariance> CashVariances => Set<CashVariance>();
     public DbSet<HistCalculComis> HistCalculComis => Set<HistCalculComis>();
     public DbSet<Activite> Activites => Set<Activite>();
 
@@ -495,6 +498,17 @@ public class AppDbContext : DbContext
         modelBuilder.Entity<ZoneCollecte>().Property(x => x.Longitude).HasColumnType("decimal(9,6)");
         modelBuilder.Entity<ZoneCollecte>().Property(x => x.RadiusMeters).HasColumnType("decimal(10,2)");
         modelBuilder.Entity<CollectorTarget>().Property(x => x.TargetAmount).HasColumnType("decimal(18,2)");
+
+        modelBuilder.Entity<BusinessCalendar>().ToTable("BusinessCalendar");
+        modelBuilder.Entity<CashSession>().ToTable("CashSession");
+        modelBuilder.Entity<CashSession>().Property(x => x.OpeningCash).HasColumnType("decimal(18,2)");
+        modelBuilder.Entity<CashSession>().Property(x => x.PreviousClosingCash).HasColumnType("decimal(18,2)");
+        modelBuilder.Entity<CashSession>().Property(x => x.ExpectedCash).HasColumnType("decimal(18,2)");
+        modelBuilder.Entity<CashSession>().Property(x => x.PhysicalCash).HasColumnType("decimal(18,2)");
+        modelBuilder.Entity<CashSession>().Property(x => x.CashDifference).HasColumnType("decimal(18,2)");
+        modelBuilder.Entity<CashSession>().HasIndex(x => x.SessionNumber).IsUnique();
+        modelBuilder.Entity<CashVariance>().ToTable("CashVariance");
+        modelBuilder.Entity<CashVariance>().Property(x => x.VarianceAmount).HasColumnType("decimal(18,2)");
 
         // Business rule: at most one ACTIVE collector per zone at a time, so a
         // Client's effective collector (inherited via its Zone) is unambiguous.

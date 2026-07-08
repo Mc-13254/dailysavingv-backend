@@ -15,3 +15,4 @@ public record LoginResponse(
 );
 
 public record RefreshRequest(string RefreshToken);
+public record VerifyPasswordRequest(string Password);

@@ -21,6 +21,8 @@ public class Transactions
     public string ClientID { get; set; } = null!;
     public Client? Client { get; set; }
     public string? CollectorID { get; set; }
+    public int? CashSessionID { get; set; }
+    public CashSession? CashSession { get; set; }
 
     // Agency-scoping key
     public int AgenceID { get; set; }
