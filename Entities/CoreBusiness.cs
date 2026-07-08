@@ -17,6 +17,7 @@ public class Collector
     public Department? Department { get; set; }
 
     public int? ZoneCollecteID { get; set; }
+    public ZoneCollecte? ZoneCollecte { get; set; }
     public bool IsActive { get; set; } = true;
     public string CDETAT { get; set; } = "ACTIVE"; // ACTIVE / INACTIVE / SUSPENDED / ONLEAVE
     public DateTime? DateEmploi { get; set; }
