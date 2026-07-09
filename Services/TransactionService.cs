@@ -102,11 +102,13 @@ public class TransactionService : ITransactionService
             TransactionType = request.TransactionType,
             AccountID = account.AccountID,
             ToAccountID = toAccount?.AccountID,
+            ToClientID = toClient?.ClientID,
             ClientID = account.ClientID,
             CollectorID = request.CollectorID,
             CashSessionID = session.CashSessionID,
             AgenceID = _currentUser.AgenceID ?? account.AgenceID,
             Montant = request.Montant,
+            OpeningBalance = openingBalance,
             RemitterName = remitter,
             BeneficiaryName = beneficiary,
             CommissionTypeID = commission.CommissionTypeID,
@@ -140,6 +142,8 @@ public class TransactionService : ITransactionService
                 toAccount.AvailableBalance += request.Montant;
                 break;
         }
+
+        transaction.ClosingBalance = account.Balance;
 
         await _db.SaveChangesAsync(); // need TransactionID before writing audit rows
 

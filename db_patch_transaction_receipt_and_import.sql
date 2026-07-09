@@ -9,6 +9,20 @@ IF COL_LENGTH('Transactions', 'RemitterName') IS NULL
     ALTER TABLE Transactions ADD RemitterName NVARCHAR(150) NULL;
 IF COL_LENGTH('Transactions', 'BeneficiaryName') IS NULL
     ALTER TABLE Transactions ADD BeneficiaryName NVARCHAR(150) NULL;
+IF COL_LENGTH('Transactions', 'ToClientID') IS NULL
+    ALTER TABLE Transactions ADD ToClientID NVARCHAR(20) NULL;
+IF COL_LENGTH('Transactions', 'LinkedTransactionID') IS NULL
+    ALTER TABLE Transactions ADD LinkedTransactionID BIGINT NULL;
+IF COL_LENGTH('Transactions', 'OpeningBalance') IS NULL
+    ALTER TABLE Transactions ADD OpeningBalance DECIMAL(18,2) NOT NULL DEFAULT 0;
+IF COL_LENGTH('Transactions', 'ClosingBalance') IS NULL
+    ALTER TABLE Transactions ADD ClosingBalance DECIMAL(18,2) NOT NULL DEFAULT 0;
+IF COL_LENGTH('Transactions', 'PaymentMethod') IS NULL
+    ALTER TABLE Transactions ADD PaymentMethod NVARCHAR(30) NULL;
+IF COL_LENGTH('Transactions', 'ReferenceNumber') IS NULL
+    ALTER TABLE Transactions ADD ReferenceNumber NVARCHAR(100) NULL;
+IF COL_LENGTH('Transactions', 'Comment') IS NULL
+    ALTER TABLE Transactions ADD Comment NVARCHAR(500) NULL;
 GO
 
 IF NOT EXISTS (SELECT 1 FROM sys.foreign_keys WHERE name = 'FK_Transactions_ToAccount')

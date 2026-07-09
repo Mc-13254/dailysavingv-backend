@@ -455,6 +455,8 @@ public class AppDbContext : DbContext
         modelBuilder.Entity<Accounts>().HasIndex(a => a.ContractID).IsUnique().HasFilter("[ContractID] IS NOT NULL");
         modelBuilder.Entity<Transactions>().Property(x => x.Montant).HasColumnType("decimal(18,2)");
         modelBuilder.Entity<Transactions>().Property(x => x.MontantCommission).HasColumnType("decimal(18,2)");
+        modelBuilder.Entity<Transactions>().Property(x => x.OpeningBalance).HasColumnType("decimal(18,2)");
+        modelBuilder.Entity<Transactions>().Property(x => x.ClosingBalance).HasColumnType("decimal(18,2)");
         modelBuilder.Entity<Collector>().Property(x => x.Plafond).HasColumnType("decimal(18,2)");
         modelBuilder.Entity<Collector>().Property(x => x.Caution).HasColumnType("decimal(18,2)");
         modelBuilder.Entity<Collector>().Property(x => x.CollectMonth).HasColumnType("decimal(18,2)");
