@@ -508,6 +508,14 @@ public class AppDbContext : DbContext
         modelBuilder.Entity<LoanRepayment>().Property(x => x.PenaltyPaid).HasColumnType("decimal(18,2)");
         modelBuilder.Entity<LoanRepayment>().HasOne(x => x.Loan).WithMany().HasForeignKey(x => x.LoanID).OnDelete(DeleteBehavior.Restrict);
 
+        modelBuilder.Entity<LoanProduct>().ToTable("LoanProduct");
+        modelBuilder.Entity<LoanApplication>().ToTable("LoanApplication");
+        modelBuilder.Entity<Loan>().ToTable("Loan");
+        modelBuilder.Entity<LoanInstallment>().ToTable("LoanInstallment");
+        modelBuilder.Entity<LoanRepayment>().ToTable("LoanRepayment");
+        modelBuilder.Entity<Vault>().ToTable("Vault");
+        modelBuilder.Entity<CashMovement>().ToTable("CashMovement");
+
         modelBuilder.Entity<Vault>().Property(x => x.Balance).HasColumnType("decimal(18,2)");
         modelBuilder.Entity<Vault>().Property(x => x.MinimumBalance).HasColumnType("decimal(18,2)");
         modelBuilder.Entity<Vault>().Property(x => x.MaximumBalance).HasColumnType("decimal(18,2)");
