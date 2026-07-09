@@ -69,6 +69,11 @@ public class AppDbContext : DbContext
 
     // Transactions & audit
     public DbSet<Transactions> Transactions => Set<Transactions>();
+    public DbSet<LoanProduct> LoanProducts => Set<LoanProduct>();
+    public DbSet<LoanApplication> LoanApplications => Set<LoanApplication>();
+    public DbSet<Loan> Loans => Set<Loan>();
+    public DbSet<LoanInstallment> LoanInstallments => Set<LoanInstallment>();
+    public DbSet<LoanRepayment> LoanRepayments => Set<LoanRepayment>();
     public DbSet<HistTransactions> HistTransactions => Set<HistTransactions>();
     public DbSet<BusinessCalendar> BusinessCalendars => Set<BusinessCalendar>();
     public DbSet<CashSession> CashSessions => Set<CashSession>();
@@ -464,6 +469,42 @@ public class AppDbContext : DbContext
         modelBuilder.Entity<Transactions>().Property(x => x.MontantCommission).HasColumnType("decimal(18,2)");
         modelBuilder.Entity<Transactions>().Property(x => x.OpeningBalance).HasColumnType("decimal(18,2)");
         modelBuilder.Entity<Transactions>().Property(x => x.ClosingBalance).HasColumnType("decimal(18,2)");
+
+        modelBuilder.Entity<LoanProduct>().Property(x => x.AnnualInterestRate).HasColumnType("decimal(9,4)");
+        modelBuilder.Entity<LoanProduct>().Property(x => x.MinAmount).HasColumnType("decimal(18,2)");
+        modelBuilder.Entity<LoanProduct>().Property(x => x.MaxAmount).HasColumnType("decimal(18,2)");
+        modelBuilder.Entity<LoanProduct>().Property(x => x.PenaltyRatePerDay).HasColumnType("decimal(9,4)");
+
+        modelBuilder.Entity<LoanApplication>().Property(x => x.RequestedAmount).HasColumnType("decimal(18,2)");
+        modelBuilder.Entity<LoanApplication>().Property(x => x.ApprovedAmount).HasColumnType("decimal(18,2)");
+        modelBuilder.Entity<LoanApplication>().HasOne(x => x.Client).WithMany().HasForeignKey(x => x.ClientID).OnDelete(DeleteBehavior.Restrict);
+        modelBuilder.Entity<LoanApplication>().HasOne(x => x.LoanProduct).WithMany().HasForeignKey(x => x.LoanProductID).OnDelete(DeleteBehavior.Restrict);
+
+        modelBuilder.Entity<Loan>().Property(x => x.PrincipalAmount).HasColumnType("decimal(18,2)");
+        modelBuilder.Entity<Loan>().Property(x => x.AnnualInterestRate).HasColumnType("decimal(9,4)");
+        modelBuilder.Entity<Loan>().Property(x => x.TotalPrincipal).HasColumnType("decimal(18,2)");
+        modelBuilder.Entity<Loan>().Property(x => x.TotalInterest).HasColumnType("decimal(18,2)");
+        modelBuilder.Entity<Loan>().Property(x => x.OutstandingPrincipal).HasColumnType("decimal(18,2)");
+        modelBuilder.Entity<Loan>().Property(x => x.OutstandingInterest).HasColumnType("decimal(18,2)");
+        modelBuilder.Entity<Loan>().Property(x => x.OutstandingPenalty).HasColumnType("decimal(18,2)");
+        modelBuilder.Entity<Loan>().HasOne(x => x.Client).WithMany().HasForeignKey(x => x.ClientID).OnDelete(DeleteBehavior.Restrict);
+        modelBuilder.Entity<Loan>().HasOne(x => x.LoanProduct).WithMany().HasForeignKey(x => x.LoanProductID).OnDelete(DeleteBehavior.Restrict);
+        modelBuilder.Entity<Loan>().HasOne(x => x.LoanApplication).WithMany().HasForeignKey(x => x.LoanApplicationID).OnDelete(DeleteBehavior.Restrict);
+        modelBuilder.Entity<Loan>().HasIndex(x => x.LoanNumber).IsUnique();
+
+        modelBuilder.Entity<LoanInstallment>().Property(x => x.PrincipalDue).HasColumnType("decimal(18,2)");
+        modelBuilder.Entity<LoanInstallment>().Property(x => x.InterestDue).HasColumnType("decimal(18,2)");
+        modelBuilder.Entity<LoanInstallment>().Property(x => x.PenaltyDue).HasColumnType("decimal(18,2)");
+        modelBuilder.Entity<LoanInstallment>().Property(x => x.PrincipalPaid).HasColumnType("decimal(18,2)");
+        modelBuilder.Entity<LoanInstallment>().Property(x => x.InterestPaid).HasColumnType("decimal(18,2)");
+        modelBuilder.Entity<LoanInstallment>().Property(x => x.PenaltyPaid).HasColumnType("decimal(18,2)");
+        modelBuilder.Entity<LoanInstallment>().HasOne(x => x.Loan).WithMany().HasForeignKey(x => x.LoanID).OnDelete(DeleteBehavior.Restrict);
+
+        modelBuilder.Entity<LoanRepayment>().Property(x => x.Amount).HasColumnType("decimal(18,2)");
+        modelBuilder.Entity<LoanRepayment>().Property(x => x.PrincipalPaid).HasColumnType("decimal(18,2)");
+        modelBuilder.Entity<LoanRepayment>().Property(x => x.InterestPaid).HasColumnType("decimal(18,2)");
+        modelBuilder.Entity<LoanRepayment>().Property(x => x.PenaltyPaid).HasColumnType("decimal(18,2)");
+        modelBuilder.Entity<LoanRepayment>().HasOne(x => x.Loan).WithMany().HasForeignKey(x => x.LoanID).OnDelete(DeleteBehavior.Restrict);
         modelBuilder.Entity<Collector>().Property(x => x.Plafond).HasColumnType("decimal(18,2)");
         modelBuilder.Entity<Collector>().Property(x => x.Caution).HasColumnType("decimal(18,2)");
         modelBuilder.Entity<Collector>().Property(x => x.CollectMonth).HasColumnType("decimal(18,2)");
