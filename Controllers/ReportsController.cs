@@ -138,10 +138,10 @@ public class ReportsController : ControllerBase
         var transactions = await _db.Transactions.Where(t => t.DateTransaction >= today).ToListAsync();
         var pendingImports = await _db.TransactionImportRows.CountAsync(r => r.Status == "PENDING");
         var pendingValidations =
-            await _db.ClientTmps.CountAsync(x => x.PendingStatus == "PENDING") +
-            await _db.CollectorTMPs.CountAsync(x => x.PendingStatus == "PENDING") +
-            await _db.ContractTmps.CountAsync(x => x.PendingStatus == "PENDING") +
-            await _db.AccountsTMPs.CountAsync(x => x.PendingStatus == "PENDING") +
+            await _db.ClientTmps.CountAsync(x => x.PendingStatus == Entities.Pending.PendingStatus.PENDING) +
+            await _db.CollectorTMPs.CountAsync(x => x.PendingStatus == Entities.Pending.PendingStatus.PENDING) +
+            await _db.ContractTmps.CountAsync(x => x.PendingStatus == Entities.Pending.PendingStatus.PENDING) +
+            await _db.AccountsTMPs.CountAsync(x => x.PendingStatus == Entities.Pending.PendingStatus.PENDING) +
             pendingImports;
         var openSessions = await _db.CashSessions.CountAsync(s => s.Status == "OPEN");
         var totalClients = await _db.Clients.CountAsync(c => c.ValidationStatus == "VALIDATED");
