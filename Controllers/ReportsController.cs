@@ -730,4 +730,153 @@ public class ReportsController : ControllerBase
             tx.Sum(t => t.Montant), tx.Sum(t => t.MontantCommission), clients, collectors
         ));
     }
+
+    // ---- Financial Reports -----------------------------------------------
+
+    [HttpGet("financial/summary")]
+    public async Task<ActionResult<FinancialSummaryDto>> FinancialSummary([FromQuery] DateTime? from, [FromQuery] DateTime? to)
+    {
+        var query = _db.Transactions.AsQueryable();
+        if (from.HasValue) query = query.Where(t => t.DateTransaction >= from.Value);
+        if (to.HasValue) query = query.Where(t => t.DateTransaction <= to.Value.AddDays(1).AddTicks(-1));
+        var tx = await query.ToListAsync();
+
+        var today = DateTime.UtcNow.Date;
+        decimal SumOf(Entities.TransactionType type) => tx.Where(t => t.TransactionType == type).Sum(t => t.Montant);
+        var collections = SumOf(Entities.TransactionType.DAILY_COLLECTION);
+        var deposits = SumOf(Entities.TransactionType.DEPOSIT);
+        var withdrawals = SumOf(Entities.TransactionType.WITHDRAWAL);
+        var transfers = SumOf(Entities.TransactionType.TRANSFER);
+
+        var openSessions = await _db.CashSessions.Where(s => s.Status == "OPEN").SumAsync(s => s.OpeningCash);
+        var days = tx.Select(t => t.DateTransaction.Date).Distinct().Count();
+
+        return Ok(new FinancialSummaryDto(
+            collections, deposits, withdrawals, transfers,
+            collections + deposits - withdrawals - transfers, openSessions, tx.Sum(t => t.MontantCommission),
+            tx.Count, days > 0 ? collections / days : 0,
+            tx.Where(t => t.DateTransaction >= today).Sum(t => t.Montant),
+            tx.Where(t => t.DateTransaction >= today && (t.TransactionType == Entities.TransactionType.WITHDRAWAL || t.TransactionType == Entities.TransactionType.TRANSFER)).Sum(t => t.Montant)
+        ));
+    }
+
+    [HttpGet("financial/trend")]
+    public async Task<ActionResult<IEnumerable<FinancialTrendPointDto>>> FinancialTrend([FromQuery] int days = 14)
+    {
+        var since = DateTime.UtcNow.Date.AddDays(-days + 1);
+        var tx = await _db.Transactions.Where(t => t.DateTransaction >= since).ToListAsync();
+
+        var points = Enumerable.Range(0, days).Select(i =>
+        {
+            var day = since.AddDays(i);
+            var dayTx = tx.Where(t => t.DateTransaction.Date == day).ToList();
+            decimal SumOf(Entities.TransactionType type) => dayTx.Where(t => t.TransactionType == type).Sum(t => t.Montant);
+            return new FinancialTrendPointDto(day.ToString("dd/MM"), SumOf(Entities.TransactionType.DAILY_COLLECTION),
+                SumOf(Entities.TransactionType.DEPOSIT), SumOf(Entities.TransactionType.WITHDRAWAL), SumOf(Entities.TransactionType.TRANSFER));
+        });
+
+        return Ok(points);
+    }
+
+    // ---- Audit Reports (Maker-Checker trail + login history) --------------
+    //
+    // Simplification: this system does not (yet) capture a generic field-level
+    // before/after audit log for every table. What genuinely exists and is
+    // trustworthy is (1) the Maker-Checker trail — every Create/Update/Delete
+    // across Users/Collectors/Clients/Contracts/Accounts/Agencies/Roles/
+    // Departments/ContractTypes/CommissionRanges/IMF already stores who
+    // requested it, who approved/rejected it, and a JSON before/after snapshot
+    // — and (2) login/logout activity. This report unifies both rather than
+    // presenting a fake generic audit log.
+
+    [HttpGet("audit")]
+    public async Task<ActionResult<IEnumerable<AuditTrailRowDto>>> AuditTrail([FromQuery] string? entityType, [FromQuery] string? status)
+    {
+        var rows = new List<AuditTrailRowDto>();
+
+        async Task AddAsync<T>(string entityName, IQueryable<T> source, Func<T, string?> label) where T : Entities.Pending.PendingBase
+        {
+            if (entityType != null && !entityType.Equals(entityName, StringComparison.OrdinalIgnoreCase)) return;
+            var items = await source.OrderByDescending(x => x.RequestDate).Take(200).ToListAsync();
+            rows.AddRange(items.Select(x => new AuditTrailRowDto(
+                entityName, x.PendingID, x.ActionType.ToString(), x.PendingStatus.ToString(),
+                label(x), x.RequestUser, x.RequestDate, x.ValidationUser, x.ValidationDate, x.RejectionReason
+            )));
+        }
+
+        await AddAsync("Users", _db.UsersTmps.AsQueryable(), x => x.Username ?? $"{x.FirstName} {x.LastName}");
+        await AddAsync("Collectors", _db.CollectorTMPs.AsQueryable(), x => $"{x.Name} {x.Surname}");
+        await AddAsync("Clients", _db.ClientTmps.AsQueryable(), x => $"{x.Nom} {x.Prenom}");
+        await AddAsync("Accounts", _db.AccountsTMPs.AsQueryable(), x => x.ClientID != null ? $"Client {x.ClientID}" : null);
+        await AddAsync("Contracts", _db.ContractTmps.AsQueryable(), x => x.ContractNumber);
+        await AddAsync("CommissionTypes", _db.CommissionTypeTmps.AsQueryable(), x => x.Name);
+        await AddAsync("CommissionRanges", _db.CommissionRangeTmps.AsQueryable(), x => x.Description);
+        await AddAsync("Agencies", _db.AgenceTmps.AsQueryable(), x => x.Nom);
+        await AddAsync("Roles", _db.RoleTmps.AsQueryable(), x => x.Libelle);
+        await AddAsync("Departments", _db.DepartmentTmps.AsQueryable(), x => x.DepartmentName);
+        await AddAsync("ContractTypes", _db.ContractTypeTmps.AsQueryable(), x => x.ContractName);
+        await AddAsync("IMF", _db.IMFTmps.AsQueryable(), x => x.Libelle);
+
+        if (!string.IsNullOrWhiteSpace(status)) rows = rows.Where(r => r.PendingStatus == status).ToList();
+
+        return Ok(rows.OrderByDescending(r => r.RequestDate).Take(300));
+    }
+
+    [HttpGet("audit/{entityType}/{pendingId:int}")]
+    public async Task<ActionResult<AuditTrailDetailDto>> AuditDetail(string entityType, int pendingId)
+    {
+        Entities.Pending.PendingBase? item = entityType switch
+        {
+            "Users" => await _db.UsersTmps.FirstOrDefaultAsync(x => x.PendingID == pendingId),
+            "Collectors" => await _db.CollectorTMPs.FirstOrDefaultAsync(x => x.PendingID == pendingId),
+            "Clients" => await _db.ClientTmps.FirstOrDefaultAsync(x => x.PendingID == pendingId),
+            "Accounts" => await _db.AccountsTMPs.FirstOrDefaultAsync(x => x.PendingID == pendingId),
+            "Contracts" => await _db.ContractTmps.FirstOrDefaultAsync(x => x.PendingID == pendingId),
+            "CommissionTypes" => await _db.CommissionTypeTmps.FirstOrDefaultAsync(x => x.PendingID == pendingId),
+            "CommissionRanges" => await _db.CommissionRangeTmps.FirstOrDefaultAsync(x => x.PendingID == pendingId),
+            "Agencies" => await _db.AgenceTmps.FirstOrDefaultAsync(x => x.PendingID == pendingId),
+            "Roles" => await _db.RoleTmps.FirstOrDefaultAsync(x => x.PendingID == pendingId),
+            "Departments" => await _db.DepartmentTmps.FirstOrDefaultAsync(x => x.PendingID == pendingId),
+            "ContractTypes" => await _db.ContractTypeTmps.FirstOrDefaultAsync(x => x.PendingID == pendingId),
+            "IMF" => await _db.IMFTmps.FirstOrDefaultAsync(x => x.PendingID == pendingId),
+            _ => null
+        };
+        if (item == null) throw new KeyNotFoundException("Enregistrement d'audit introuvable.");
+
+        return Ok(new AuditTrailDetailDto(
+            entityType, item.PendingID, item.ActionType.ToString(), item.PendingStatus.ToString(),
+            item.RequestUser, item.RequestDate, item.ValidationUser, item.ValidationDate,
+            item.RejectionReason, item.PreviousData, item.NewData
+        ));
+    }
+
+    [HttpGet("audit/login-history")]
+    public async Task<ActionResult<IEnumerable<LoginHistoryRowDto>>> LoginHistory([FromQuery] string? codeUser, [FromQuery] DateTime? from, [FromQuery] DateTime? to)
+    {
+        var query = _db.Activites.AsQueryable();
+        if (!string.IsNullOrWhiteSpace(codeUser)) query = query.Where(a => a.CodeUser == codeUser);
+        if (from.HasValue) query = query.Where(a => a.DateAction >= from.Value);
+        if (to.HasValue) query = query.Where(a => a.DateAction <= to.Value.AddDays(1).AddTicks(-1));
+
+        var rows = await query.OrderByDescending(a => a.DateAction).Take(300)
+            .Select(a => new LoginHistoryRowDto(a.ActiviteID, a.CodeUser, a.Action, a.Description, a.AdresseIP, a.DateAction))
+            .ToListAsync();
+
+        return Ok(rows);
+    }
+
+    [HttpGet("audit/stats")]
+    public async Task<ActionResult<AuditReportStatsDto>> AuditStats()
+    {
+        var all = await AuditTrail(null, null);
+        var rows = ((OkObjectResult)all.Result!).Value as IEnumerable<AuditTrailRowDto>;
+        var list = rows!.ToList();
+        var today = DateTime.UtcNow.Date;
+
+        return Ok(new AuditReportStatsDto(
+            list.Count(r => r.RequestDate >= today),
+            list.Count(r => r.ActionType == "CREATE"), list.Count(r => r.ActionType == "UPDATE"), list.Count(r => r.ActionType == "DELETE"),
+            list.Count(r => r.PendingStatus == "APPROVED"), list.Count(r => r.PendingStatus == "REJECTED"), list.Count(r => r.PendingStatus == "PENDING")
+        ));
+    }
 }

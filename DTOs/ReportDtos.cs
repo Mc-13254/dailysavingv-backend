@@ -172,3 +172,34 @@ public record AgencyReportStatsDto(
     int TotalAgencies, string? TopAgencyName, string? LowestAgencyName,
     decimal TotalRevenue, decimal TotalCommission, int TotalClients, int TotalCollectors
 );
+
+// ---- Financial Reports ----
+
+public record FinancialSummaryDto(
+    decimal TotalCollections, decimal TotalDeposits, decimal TotalWithdrawals, decimal TotalTransfers,
+    decimal NetCashFlow, decimal CurrentCashBalance, decimal TotalCommissionPaid,
+    int TransactionCount, decimal AverageDailyCollection, decimal TodayRevenue, decimal TodayExpenses
+);
+
+public record FinancialTrendPointDto(string Label, decimal Collections, decimal Deposits, decimal Withdrawals, decimal Transfers);
+
+// ---- Audit Reports (Maker-Checker trail + login history) ----
+
+public record AuditTrailRowDto(
+    string EntityType, int PendingID, string ActionType, string PendingStatus,
+    string? Label, string RequestUser, DateTime RequestDate,
+    string? ValidationUser, DateTime? ValidationDate, string? RejectionReason
+);
+
+public record AuditTrailDetailDto(
+    string EntityType, int PendingID, string ActionType, string PendingStatus,
+    string RequestUser, DateTime RequestDate, string? ValidationUser, DateTime? ValidationDate,
+    string? RejectionReason, string? PreviousDataJson, string? NewDataJson
+);
+
+public record LoginHistoryRowDto(long ActiviteID, string? CodeUser, string Action, string? Description, string? AdresseIP, DateTime DateAction);
+
+public record AuditReportStatsDto(
+    int TodayEvents, int CreateCount, int UpdateCount, int DeleteCount,
+    int ApprovedCount, int RejectedCount, int PendingCount
+);
