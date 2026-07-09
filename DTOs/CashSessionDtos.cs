@@ -4,12 +4,13 @@ public record BusinessCalendarDto(int AgenceID, string WorkingDays, TimeSpan Ope
 public record UpdateBusinessCalendarRequest(string WorkingDays, TimeSpan OpeningTime, TimeSpan ClosingTime, int GracePeriodMinutes);
 
 public record OpenSessionRequest(decimal? OpeningCashOverride, string? Comment);
-public record CloseSessionRequest(decimal PhysicalCash, string? Comment, string? VarianceReason);
+public record CloseSessionRequest(decimal PhysicalCash, Dictionary<int, int>? PhysicalCashBreakdown, string? Comment, string? VarianceReason);
 
 public record CashSessionDto(
     int CashSessionID, string SessionNumber, string CodeUser, string? UserFullName, int AgenceID,
     DateTime OpeningDate, decimal OpeningCash, decimal PreviousClosingCash,
     DateTime? ClosingDate, decimal? ExpectedCash, decimal? PhysicalCash, decimal? CashDifference,
+    string? PhysicalCashBreakdownJson,
     string Status, bool RequiresApproval, string? ApprovalStatus
 );
 

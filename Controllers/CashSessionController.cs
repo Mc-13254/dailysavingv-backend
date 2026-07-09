@@ -152,12 +152,25 @@ public class CashSessionController : ControllerBase
             .FirstOrDefaultAsync(s => s.CodeUser == _currentUser.CodeUser && s.Status == "OPEN")
             ?? throw new InvalidOperationException("Aucune session de caisse ouverte à clôturer.");
 
+        // Real banking end-of-day counting: if a bill/coin breakdown was provided,
+        // it must add up to exactly the declared physical cash — no silent mismatch.
+        if (request.PhysicalCashBreakdown is { Count: > 0 })
+        {
+            var breakdownTotal = request.PhysicalCashBreakdown.Sum(kv => (decimal)kv.Key * kv.Value);
+            if (breakdownTotal != request.PhysicalCash)
+                throw new InvalidOperationException(
+                    $"Le détail des coupures ({breakdownTotal:N0}) ne correspond pas au montant physique déclaré ({request.PhysicalCash:N0}).");
+        }
+
         var expectedCash = await ComputeExpectedCash(session);
         var difference = request.PhysicalCash - expectedCash;
 
         session.ClosingDate = DateTime.UtcNow;
         session.ExpectedCash = expectedCash;
         session.PhysicalCash = request.PhysicalCash;
+        session.PhysicalCashBreakdownJson = request.PhysicalCashBreakdown is { Count: > 0 }
+            ? System.Text.Json.JsonSerializer.Serialize(request.PhysicalCashBreakdown)
+            : null;
         session.CashDifference = difference;
         session.ClosingComment = request.Comment;
         session.ClosedBy = _currentUser.CodeUser;
@@ -241,6 +254,7 @@ public class CashSessionController : ControllerBase
             s.CashSessionID, s.SessionNumber, s.CodeUser, fullName, s.AgenceID,
             s.OpeningDate, s.OpeningCash, s.PreviousClosingCash,
             s.ClosingDate, s.ExpectedCash, s.PhysicalCash, s.CashDifference,
+            s.PhysicalCashBreakdownJson,
             s.Status, s.RequiresApproval, s.ApprovalStatus
         );
     }

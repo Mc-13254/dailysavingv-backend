@@ -37,6 +37,9 @@ public class CashSession
     public DateTime? ClosingDate { get; set; }
     public decimal? ExpectedCash { get; set; }
     public decimal? PhysicalCash { get; set; }
+    // Bill/coin breakdown that adds up to PhysicalCash, e.g. {"10000":5,"500":12} —
+    // mirrors real banking end-of-day cash counting rather than a single number.
+    public string? PhysicalCashBreakdownJson { get; set; }
     public decimal? CashDifference { get; set; }
     public string? ClosingComment { get; set; }
     public string? ClosedBy { get; set; }

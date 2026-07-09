@@ -9,7 +9,9 @@ public record CreateTransactionRequest(
     string? CollectorID,
     decimal Montant,
     string? RemitterName,
-    string? BeneficiaryName
+    string? BeneficiaryName,
+    string? PaymentMethod,
+    Dictionary<int, int>? CashBreakdown  // denomination value -> quantity, CASH only
 );
 
 public record TransactionReceiptDto(

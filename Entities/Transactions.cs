@@ -50,6 +50,11 @@ public class Transactions
     public string? ReferenceNumber { get; set; }
     public string? Comment { get; set; }
 
+    // Cash-only: bill/coin breakdown as JSON, e.g. {"10000":2,"5000":1,"500":4}.
+    // Kept as JSON rather than a child table since it's purely informational —
+    // the authoritative amount is always Montant; this just proves how it was counted.
+    public string? CashBreakdownJson { get; set; }
+
     public string? ReceiptNumber { get; set; }
     public DateTime DateTransaction { get; set; } = DateTime.UtcNow;
     public string Statut { get; set; } = "VALIDATED";   // VALIDATED / REVERSED / CANCELLED

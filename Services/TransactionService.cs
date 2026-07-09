@@ -44,8 +44,21 @@ public class TransactionService : ITransactionService
         if (request.Montant <= 0)
             throw new InvalidOperationException("Le montant doit être supérieur à zéro.");
 
-        var client = await _db.Clients.FirstOrDefaultAsync(c => c.ClientID == account.ClientID);
-        var clientName = client != null ? $"{client.Nom} {client.Prenom}".Trim() : account.ClientID;
+        // Real banking cash handling: when counted in cash, the bill/coin
+        // breakdown must add up exactly to the declared amount.
+        if (request.CashBreakdown is { Count: > 0 })
+        {
+            var breakdownTotal = request.CashBreakdown.Sum(kv => (decimal)kv.Key * kv.Value);
+            if (breakdownTotal != request.Montant)
+                throw new InvalidOperationException(
+                    $"Le détail des coupures ({breakdownTotal:N0}) ne correspond pas au montant de la transaction ({request.Montant:N0}).");
+        }
+
+        var client = await _db.Clients.FirstOrDefaultAsync(c => c.ClientID == account.ClientID)
+            ?? throw new InvalidOperationException("Client introuvable.");
+        var clientName = $"{client.Nom} {client.Prenom}".Trim();
+
+        await ValidatePartyIsActiveAsync(client, account, isSender: true);
 
         Accounts? toAccount = null;
         Client? toClient = null;
@@ -58,7 +71,10 @@ public class TransactionService : ITransactionService
 
             toAccount = await _db.Accounts.FirstOrDefaultAsync(a => a.AccountID == request.ToAccountID)
                 ?? throw new InvalidOperationException("Compte bénéficiaire introuvable.");
-            toClient = await _db.Clients.FirstOrDefaultAsync(c => c.ClientID == toAccount.ClientID);
+            toClient = await _db.Clients.FirstOrDefaultAsync(c => c.ClientID == toAccount.ClientID)
+                ?? throw new InvalidOperationException("Client bénéficiaire introuvable.");
+
+            await ValidatePartyIsActiveAsync(toClient, toAccount, isSender: false);
 
             if (account.Balance < request.Montant)
                 throw new InvalidOperationException("Solde insuffisant sur le compte source.");
@@ -111,6 +127,10 @@ public class TransactionService : ITransactionService
             OpeningBalance = openingBalance,
             RemitterName = remitter,
             BeneficiaryName = beneficiary,
+            PaymentMethod = request.PaymentMethod,
+            CashBreakdownJson = request.CashBreakdown is { Count: > 0 }
+                ? JsonSerializer.Serialize(request.CashBreakdown)
+                : null,
             CommissionTypeID = commission.CommissionTypeID,
             CommissionRangeID = commission.CommissionRangeID,
             MontantCommission = commission.MontantCommission,
@@ -183,6 +203,25 @@ public class TransactionService : ITransactionService
             transaction.Montant, openingBalance, account.Balance, transaction.MontantCommission,
             transaction.DateTransaction
         );
+    }
+
+    private async Task ValidatePartyIsActiveAsync(Client client, Accounts account, bool isSender)
+    {
+        var role = isSender ? "émetteur" : "bénéficiaire";
+
+        if (client.ValidationStatus != "VALIDATED")
+            throw new InvalidOperationException($"Le client {role} n'est pas actif (statut: {client.ValidationStatus}).");
+        if (client.IsBlacklisted)
+            throw new InvalidOperationException($"Le client {role} est sur liste noire — opération bloquée.");
+        if (account.Status != "ACTIVE")
+            throw new InvalidOperationException($"Le compte {role} n'est pas actif (statut: {account.Status}).");
+
+        if (account.ContractID.HasValue)
+        {
+            var contract = await _db.Contracts.FirstOrDefaultAsync(c => c.ContractID == account.ContractID.Value);
+            if (contract != null && contract.Statut != "ACTIVE")
+                throw new InvalidOperationException($"Le contrat lié au compte {role} n'est pas actif (statut: {contract.Statut}).");
+        }
     }
 
     private static string GenerateReceiptNumber() =>
