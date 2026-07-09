@@ -16,11 +16,13 @@ public class LoanController : ControllerBase
 {
     private readonly AppDbContext _db;
     private readonly ICurrentUserService _currentUser;
+    private readonly Services.INotificationService _notifications;
 
-    public LoanController(AppDbContext db, ICurrentUserService currentUser)
+    public LoanController(AppDbContext db, ICurrentUserService currentUser, Services.INotificationService notifications)
     {
         _db = db;
         _currentUser = currentUser;
+        _notifications = notifications;
     }
 
     // ---- Loan Products (simplified: direct admin config, no Maker-Checker) ----
@@ -107,6 +109,12 @@ public class LoanController : ControllerBase
         };
         _db.LoanApplications.Add(app);
         await _db.SaveChangesAsync();
+
+        await _notifications.SendToSupervisorsAsync(
+            app.AgenceID, "Nouvelle demande de prêt",
+            $"{client.Nom} {client.Prenom} demande {request.RequestedAmount:N0} sur {request.RequestedTermMonths} mois.",
+            "INFO", "/loans"
+        );
 
         return Ok(new { message = "Demande de prêt soumise pour approbation.", loanApplicationId = app.LoanApplicationID });
     }

@@ -20,11 +20,13 @@ public class TellerController : ControllerBase
 {
     private readonly AppDbContext _db;
     private readonly ICurrentUserService _currentUser;
+    private readonly Services.INotificationService _notifications;
 
-    public TellerController(AppDbContext db, ICurrentUserService currentUser)
+    public TellerController(AppDbContext db, ICurrentUserService currentUser, Services.INotificationService notifications)
     {
         _db = db;
         _currentUser = currentUser;
+        _notifications = notifications;
     }
 
     private async Task<Vault> GetOrCreateVaultAsync(int agenceId)
@@ -106,6 +108,12 @@ public class TellerController : ControllerBase
         };
         _db.CashMovements.Add(movement);
         await _db.SaveChangesAsync();
+
+        await _notifications.SendToSupervisorsAsync(
+            agenceId, "Mouvement de caisse en attente",
+            $"{movement.MovementNumber} — {request.MovementType} de {request.Amount:N0} demandé par {_currentUser.CodeUser}.",
+            "WARNING", "/teller"
+        );
 
         return Ok(new { message = "Mouvement de caisse soumis pour approbation.", movementNumber = movement.MovementNumber });
     }

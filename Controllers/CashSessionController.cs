@@ -15,16 +15,15 @@ public class CashSessionController : ControllerBase
 {
     private readonly AppDbContext _db;
     private readonly ICurrentUserService _currentUser;
+    private readonly Services.INotificationService _notifications;
 
-    // Variance beyond this threshold requires supervisor approval before the
-    // session is considered fully closed. Kept as a constant for now — could
-    // become an admin-configurable System Parameter later.
     private const decimal VarianceApprovalThreshold = 5000m;
 
-    public CashSessionController(AppDbContext db, ICurrentUserService currentUser)
+    public CashSessionController(AppDbContext db, ICurrentUserService currentUser, Services.INotificationService notifications)
     {
         _db = db;
         _currentUser = currentUser;
+        _notifications = notifications;
     }
 
     // ---- Business Calendar --------------------------------------------
@@ -195,6 +194,16 @@ public class CashSessionController : ControllerBase
         }
 
         await _db.SaveChangesAsync();
+
+        if (session.RequiresApproval)
+        {
+            await _notifications.SendToSupervisorsAsync(
+                session.AgenceID, "Écart de caisse nécessitant approbation",
+                $"La session {session.SessionNumber} présente un écart de {difference:N0} dépassant le seuil autorisé.",
+                "ALERT", "/reports/cash-sessions"
+            );
+        }
+
         return Ok(await ToDto(session));
     }
 

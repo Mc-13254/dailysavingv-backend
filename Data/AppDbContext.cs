@@ -76,6 +76,8 @@ public class AppDbContext : DbContext
     public DbSet<LoanRepayment> LoanRepayments => Set<LoanRepayment>();
     public DbSet<Vault> Vaults => Set<Vault>();
     public DbSet<CashMovement> CashMovements => Set<CashMovement>();
+    public DbSet<DocumentRecord> Documents => Set<DocumentRecord>();
+    public DbSet<Notification> Notifications => Set<Notification>();
     public DbSet<HistTransactions> HistTransactions => Set<HistTransactions>();
     public DbSet<BusinessCalendar> BusinessCalendars => Set<BusinessCalendar>();
     public DbSet<CashSession> CashSessions => Set<CashSession>();
@@ -515,6 +517,10 @@ public class AppDbContext : DbContext
         modelBuilder.Entity<LoanRepayment>().ToTable("LoanRepayment");
         modelBuilder.Entity<Vault>().ToTable("Vault");
         modelBuilder.Entity<CashMovement>().ToTable("CashMovement");
+
+        modelBuilder.Entity<DocumentRecord>().ToTable("Document");
+        modelBuilder.Entity<DocumentRecord>().HasKey(x => x.DocumentID); // class name (DocumentRecord) doesn't match PK convention
+        modelBuilder.Entity<Notification>().ToTable("Notification");
 
         modelBuilder.Entity<Vault>().Property(x => x.Balance).HasColumnType("decimal(18,2)");
         modelBuilder.Entity<Vault>().Property(x => x.MinimumBalance).HasColumnType("decimal(18,2)");
