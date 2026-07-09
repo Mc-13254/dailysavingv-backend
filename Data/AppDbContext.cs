@@ -46,6 +46,7 @@ public class AppDbContext : DbContext
     // Users
     public DbSet<Users> Users => Set<Users>();
     public DbSet<RefreshToken> RefreshTokens => Set<RefreshToken>();
+    public DbSet<FailedLoginAttempt> FailedLoginAttempts => Set<FailedLoginAttempt>();
 
     // Core business (agency-scoped)
     public DbSet<Collector> Collectors => Set<Collector>();
@@ -165,6 +166,7 @@ public class AppDbContext : DbContext
         modelBuilder.Entity<Transactions>().HasKey(x => x.TransactionID);
         modelBuilder.Entity<HistTransactions>().HasKey(x => x.HistTransactionID);
         modelBuilder.Entity<RefreshToken>().HasKey(x => x.TokenID);
+        modelBuilder.Entity<FailedLoginAttempt>().HasKey(x => x.AttemptID);
 
         // Pending (Maker-Checker) tables all use "PendingID" as their key,
         // which never matches the "{ClassName}Id" convention either.

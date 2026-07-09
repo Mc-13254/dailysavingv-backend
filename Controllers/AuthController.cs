@@ -25,9 +25,20 @@ public class AuthController : ControllerBase
     [HttpPost("login")]
     public async Task<ActionResult<LoginResponse>> Login(LoginRequest request)
     {
-        var result = await _authService.LoginAsync(request.Username, request.Password);
-        if (result == null) return Unauthorized(new { message = "Identifiants invalides." });
-        return Ok(result);
+        var ip = HttpContext.Connection.RemoteIpAddress?.ToString();
+        var userAgent = Request.Headers.UserAgent.ToString();
+
+        try
+        {
+            var result = await _authService.LoginAsync(request.Username, request.Password, ip, userAgent);
+            if (result == null) return Unauthorized(new { message = "Identifiants invalides." });
+            return Ok(result);
+        }
+        catch (InvalidOperationException ex)
+        {
+            // Account-locked case: give a specific, actionable message instead of the generic one.
+            return StatusCode(423, new { message = ex.Message }); // 423 Locked
+        }
     }
 
     [HttpPost("refresh")]

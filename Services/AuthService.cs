@@ -22,7 +22,13 @@ public class AuthService : IAuthService
         _config = config;
     }
 
-    public async Task<LoginResponse?> LoginAsync(string username, string password)
+    // Accounts lock automatically after this many consecutive failed attempts.
+    // Simplification: no rolling time-window (e.g. "5 in 10 minutes") — a
+    // straight consecutive-attempt counter that resets on success. Good enough
+    // to stop brute-force guessing without needing a background job.
+    private const int MaxFailedAttempts = 5;
+
+    public async Task<LoginResponse?> LoginAsync(string username, string password, string? ipAddress, string? userAgent)
     {
         // NOTE: Users DbSet has a global query filter based on the CURRENT user's
         // agency. At login time there is no current user yet, so we query
@@ -32,13 +38,65 @@ public class AuthService : IAuthService
             .IgnoreQueryFilters()
             .Include(u => u.Role)
             .Include(u => u.Agence)
-            .FirstOrDefaultAsync(u => u.Username == username && u.Statut == "ACTIVE");
+            .FirstOrDefaultAsync(u => u.Username == username);
 
-        if (user == null) return null;
-        if (!BCrypt.Net.BCrypt.Verify(password, user.PasswordHash)) return null;
+        async Task RecordFailureAsync(string reason, string? codeUser)
+        {
+            var recentCount = await _db.FailedLoginAttempts
+                .CountAsync(a => a.Username == username && a.AttemptDate >= DateTime.UtcNow.AddMinutes(-15));
+            var riskLevel = recentCount >= 5 ? "CRITICAL" : recentCount >= 3 ? "HIGH" : recentCount >= 1 ? "MEDIUM" : "LOW";
+
+            _db.FailedLoginAttempts.Add(new FailedLoginAttempt
+            {
+                Username = username,
+                CodeUser = codeUser,
+                FailureReason = reason,
+                RiskLevel = riskLevel,
+                IPAddress = ipAddress,
+                UserAgent = userAgent
+            });
+        }
+
+        if (user == null)
+        {
+            await RecordFailureAsync("UNKNOWN_USERNAME", null);
+            await _db.SaveChangesAsync();
+            return null;
+        }
+
+        if (user.AccountLocked)
+        {
+            await RecordFailureAsync("LOCKED_ACCOUNT", user.CodeUser);
+            await _db.SaveChangesAsync();
+            throw new InvalidOperationException($"Compte verrouillé{(user.LockReason != null ? $" : {user.LockReason}" : "")}. Contactez un administrateur.");
+        }
+
+        if (user.Statut != "ACTIVE")
+        {
+            await RecordFailureAsync("INACTIVE_ACCOUNT", user.CodeUser);
+            await _db.SaveChangesAsync();
+            return null;
+        }
+
+        if (!BCrypt.Net.BCrypt.Verify(password, user.PasswordHash))
+        {
+            await RecordFailureAsync("WRONG_PASSWORD", user.CodeUser);
+            user.FailedLoginAttempts += 1;
+            if (user.FailedLoginAttempts >= MaxFailedAttempts)
+            {
+                user.AccountLocked = true;
+                user.LockReason = "Trop de tentatives de connexion échouées";
+                user.LockedDate = DateTime.UtcNow;
+                user.LockedBy = "SYSTEM";
+            }
+            await _db.SaveChangesAsync();
+            return null;
+        }
+
         if (user.ValidationStatus != "VALIDATED") return null; // account itself pending Maker-Checker approval
 
         user.LastLogin = DateTime.UtcNow;
+        user.FailedLoginAttempts = 0; // reset the streak on a successful login
 
         var (accessToken, expiresAt) = GenerateAccessToken(user);
         var refreshToken = GenerateRefreshToken();
@@ -48,7 +106,9 @@ public class AuthService : IAuthService
             CodeUser = user.CodeUser,
             Token = refreshToken,
             ExpiryDate = DateTime.UtcNow.AddDays(_config.GetValue<int>("Jwt:RefreshTokenDays", 7)),
-            IsActive = true
+            IsActive = true,
+            IPAddress = ipAddress,
+            UserAgent = userAgent
         });
 
         _db.Activites.Add(new Activite
@@ -56,7 +116,8 @@ public class AuthService : IAuthService
             CodeUser = user.CodeUser,
             Action = "LOGIN",
             Module = "AUTH",
-            Description = $"User {user.Username} logged in"
+            Description = $"User {user.Username} logged in",
+            AdresseIP = ipAddress
         });
 
         await _db.SaveChangesAsync();

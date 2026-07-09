@@ -47,6 +47,13 @@ public class Users
     public string? Signe { get; set; } // signature (base64)
 
     public string Statut { get; set; } = "ACTIVE";
+
+    // Security / account lockout
+    public int FailedLoginAttempts { get; set; }
+    public bool AccountLocked { get; set; }
+    public string? LockReason { get; set; }
+    public DateTime? LockedDate { get; set; }
+    public string? LockedBy { get; set; }
     public string ValidationStatus { get; set; } = "VALIDATED";
     public string? CreatedBy { get; set; }
     public DateTime CreatedDate { get; set; } = DateTime.UtcNow;
@@ -61,6 +68,18 @@ public class Users
     public string? LastUserSupervise { get; set; }
 }
 
+public class FailedLoginAttempt
+{
+    public int AttemptID { get; set; }
+    public string Username { get; set; } = null!;
+    public string? CodeUser { get; set; } // filled in when the username actually matched a user
+    public string FailureReason { get; set; } = null!; // WRONG_PASSWORD / UNKNOWN_USERNAME / LOCKED_ACCOUNT / INACTIVE_ACCOUNT
+    public string RiskLevel { get; set; } = "LOW"; // LOW/MEDIUM/HIGH/CRITICAL, based on recent attempt frequency
+    public string? IPAddress { get; set; }
+    public string? UserAgent { get; set; }
+    public DateTime AttemptDate { get; set; } = DateTime.UtcNow;
+}
+
 public class RefreshToken
 {
     public int TokenID { get; set; }
@@ -70,4 +89,8 @@ public class RefreshToken
     public DateTime CreatedDate { get; set; } = DateTime.UtcNow;
     public DateTime? RevokedDate { get; set; }
     public bool IsActive { get; set; } = true;
+    public string? IPAddress { get; set; }
+    public string? UserAgent { get; set; }
+    public string? TerminationReason { get; set; }
+    public string? TerminatedBy { get; set; }
 }
