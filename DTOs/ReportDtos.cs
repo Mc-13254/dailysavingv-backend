@@ -90,3 +90,48 @@ public record ClientReportStatsDto(
     int TotalClients, int ActiveClients, int PendingClients, int BlockedClients,
     int NewThisMonth, int ClientsWithAccounts, int ClientsWithContracts
 );
+
+// ---- Account Reports ----
+
+public record AccountReportRowDto(
+    string AccountID, string? AccountType, string ClientID, string ClientName,
+    string AgenceNom, string? CollectorName, string? ContractNumber,
+    decimal Balance, decimal AvailableBalance, string Status, DateTime CreateDate, DateTime? LastTransactionDate
+);
+
+public record AccountReportDetailDto(
+    string AccountID, string? AccountType, string Currency, string ClientID, string ClientName,
+    string AgenceNom, string? CollectorName, string? ContractNumber, string? ContractTypeName,
+    decimal OpeningBalance, decimal Balance, decimal AvailableBalance, decimal BlockedBalance,
+    decimal? MinimumBalance, decimal? MaximumBalance,
+    decimal TotalCollections, decimal TotalDeposits, decimal TotalWithdrawals, decimal TotalTransfers,
+    int TransactionCount, DateTime CreateDate, DateTime? LastTransactionDate,
+    string Status, string? FreezeReason, string? CloseReason
+);
+
+public record AccountReportStatsDto(
+    int TotalAccounts, int ActiveAccounts, int FrozenAccounts, int ClosedAccounts, int DormantAccounts,
+    decimal TotalBalance, decimal AverageBalance, int NewThisMonth
+);
+
+// ---- Contract Reports ----
+
+public record ContractReportRowDto(
+    int ContractID, string ContractNumber, string ClientID, string ClientName,
+    string AgenceNom, string? CollectorName, string? ContractTypeName, string? CommissionTypeName,
+    decimal? AccountBalance, decimal CommissionGenerated, string Statut, DateTime? StartDate, DateTime? EndDate
+);
+
+public record ContractReportDetailDto(
+    int ContractID, string ContractNumber, string ClientID, string ClientName,
+    string AgenceNom, string? CollectorName, string? ContractTypeName, string? CommissionTypeName,
+    DateTime? StartDate, DateTime? EndDate, string Statut, string? TerminationReason, DateTime? TerminationDate,
+    string? AccountID, decimal? AccountBalance,
+    decimal TotalCollected, int CollectionCount, decimal AverageCollection,
+    decimal CommissionGenerated, decimal? EstimatedProfitability
+);
+
+public record ContractReportStatsDto(
+    int TotalContracts, int ActiveContracts, int TerminatedContracts,
+    int ExpiringSoon, decimal TotalCommissionGenerated
+);

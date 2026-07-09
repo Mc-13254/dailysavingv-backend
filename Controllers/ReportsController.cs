@@ -352,4 +352,194 @@ public class ReportsController : ControllerBase
             clients.Count(c => contractedClientIds.Contains(c.ClientID))
         ));
     }
+
+    // ---- Account Reports -----------------------------------------------
+
+    [HttpGet("accounts")]
+    public async Task<ActionResult<IEnumerable<AccountReportRowDto>>> AccountReport(
+        [FromQuery] string? search, [FromQuery] string? status, [FromQuery] int? agenceId)
+    {
+        var query = _db.Accounts.AsQueryable();
+        if (!string.IsNullOrWhiteSpace(search))
+            query = query.Where(a => a.AccountID.Contains(search) || a.ClientID.Contains(search));
+        if (!string.IsNullOrWhiteSpace(status)) query = query.Where(a => a.Status == status);
+        if (agenceId.HasValue) query = query.Where(a => a.AgenceID == agenceId.Value);
+
+        var accounts = await query.OrderByDescending(a => a.CreateDate).Take(500).ToListAsync();
+        var clientIds = accounts.Select(a => a.ClientID).Distinct().ToList();
+        var accountIds = accounts.Select(a => a.AccountID).ToList();
+
+        var clients = await _db.Clients.IgnoreQueryFilters().Where(c => clientIds.Contains(c.ClientID)).ToListAsync();
+        var agencies = await _db.Agences.IgnoreQueryFilters().Where(a => accounts.Select(x => x.AgenceID).Contains(a.AgenceID)).ToListAsync();
+        var collectorIds = accounts.Where(a => a.CollectorID != null).Select(a => a.CollectorID!).Distinct().ToList();
+        var collectors = await _db.Collectors.IgnoreQueryFilters().Where(c => collectorIds.Contains(c.CollectorID)).ToListAsync();
+        var contractIds = accounts.Where(a => a.ContractID.HasValue).Select(a => a.ContractID!.Value).Distinct().ToList();
+        var contracts = await _db.Contracts.IgnoreQueryFilters().Where(c => contractIds.Contains(c.ContractID)).ToListAsync();
+        var lastTx = await _db.Transactions.IgnoreQueryFilters()
+            .Where(t => accountIds.Contains(t.AccountID))
+            .GroupBy(t => t.AccountID)
+            .Select(g => new { AccountID = g.Key, Last = g.Max(t => t.DateTransaction) })
+            .ToListAsync();
+
+        var result = accounts.Select(a =>
+        {
+            var client = clients.FirstOrDefault(c => c.ClientID == a.ClientID);
+            var agence = agencies.FirstOrDefault(x => x.AgenceID == a.AgenceID);
+            var collector = collectors.FirstOrDefault(c => c.CollectorID == a.CollectorID);
+            var contract = contracts.FirstOrDefault(c => c.ContractID == a.ContractID);
+            var last = lastTx.FirstOrDefault(l => l.AccountID == a.AccountID);
+
+            return new AccountReportRowDto(
+                a.AccountID, a.AccountType, a.ClientID, client != null ? $"{client.Nom} {client.Prenom}".Trim() : a.ClientID,
+                agence?.Nom ?? "—", collector != null ? $"{collector.Name} {collector.Surname}".Trim() : null,
+                contract?.ContractNumber, a.Balance, a.AvailableBalance, a.Status, a.CreateDate, last?.Last
+            );
+        });
+
+        return Ok(result);
+    }
+
+    [HttpGet("accounts/{id}")]
+    public async Task<ActionResult<AccountReportDetailDto>> AccountDetail(string id)
+    {
+        var a = await _db.Accounts.FirstOrDefaultAsync(x => x.AccountID == id)
+            ?? throw new KeyNotFoundException("Compte introuvable.");
+
+        var client = await _db.Clients.IgnoreQueryFilters().FirstOrDefaultAsync(c => c.ClientID == a.ClientID);
+        var agence = await _db.Agences.IgnoreQueryFilters().FirstOrDefaultAsync(x => x.AgenceID == a.AgenceID);
+        var collector = a.CollectorID != null ? await _db.Collectors.IgnoreQueryFilters().FirstOrDefaultAsync(c => c.CollectorID == a.CollectorID) : null;
+        var contract = a.ContractID != null ? await _db.Contracts.IgnoreQueryFilters().FirstOrDefaultAsync(c => c.ContractID == a.ContractID.Value) : null;
+        var contractType = contract?.ContractTypeID != null ? await _db.ContractTypes.FirstOrDefaultAsync(ct => ct.ContractTypeID == contract.ContractTypeID.Value) : null;
+
+        var tx = await _db.Transactions.IgnoreQueryFilters().Where(t => t.AccountID == a.AccountID).ToListAsync();
+        decimal SumOf(Entities.TransactionType type) => tx.Where(t => t.TransactionType == type).Sum(t => t.Montant);
+
+        return Ok(new AccountReportDetailDto(
+            a.AccountID, a.AccountType, a.Currency, a.ClientID, client != null ? $"{client.Nom} {client.Prenom}".Trim() : a.ClientID,
+            agence?.Nom ?? "—", collector != null ? $"{collector.Name} {collector.Surname}".Trim() : null,
+            contract?.ContractNumber, contractType?.ContractName,
+            a.OpeningBalance, a.Balance, a.AvailableBalance, a.BlockedBalance,
+            a.MinimumBalance, a.MaximumBalance,
+            SumOf(Entities.TransactionType.DAILY_COLLECTION), SumOf(Entities.TransactionType.DEPOSIT),
+            SumOf(Entities.TransactionType.WITHDRAWAL), SumOf(Entities.TransactionType.TRANSFER),
+            tx.Count, a.CreateDate, tx.Count > 0 ? tx.Max(t => t.DateTransaction) : null,
+            a.Status, a.FreezeReason, a.CloseReason
+        ));
+    }
+
+    [HttpGet("accounts/stats")]
+    public async Task<ActionResult<AccountReportStatsDto>> AccountStats()
+    {
+        var monthStart = new DateTime(DateTime.UtcNow.Year, DateTime.UtcNow.Month, 1);
+        var accounts = await _db.Accounts.ToListAsync();
+
+        return Ok(new AccountReportStatsDto(
+            accounts.Count,
+            accounts.Count(a => a.Status == "ACTIVE"),
+            accounts.Count(a => a.Status == "FROZEN"),
+            accounts.Count(a => a.Status == "CLOSED"),
+            accounts.Count(a => a.Status == "DORMANT"),
+            accounts.Sum(a => a.Balance),
+            accounts.Count > 0 ? accounts.Average(a => a.Balance) : 0,
+            accounts.Count(a => a.CreateDate >= monthStart)
+        ));
+    }
+
+    // ---- Contract Reports -----------------------------------------------
+
+    [HttpGet("contracts")]
+    public async Task<ActionResult<IEnumerable<ContractReportRowDto>>> ContractReport(
+        [FromQuery] string? search, [FromQuery] string? status, [FromQuery] int? agenceId)
+    {
+        var query = _db.Contracts.AsQueryable();
+        if (!string.IsNullOrWhiteSpace(search))
+            query = query.Where(c => c.ContractNumber.Contains(search) || (c.ClientID != null && c.ClientID.Contains(search)));
+        if (!string.IsNullOrWhiteSpace(status)) query = query.Where(c => c.Statut == status);
+        if (agenceId.HasValue) query = query.Where(c => c.AgenceID == agenceId.Value);
+
+        var contracts = await query.OrderByDescending(c => c.StartDate).Take(500).ToListAsync();
+        var clientIds = contracts.Where(c => c.ClientID != null).Select(c => c.ClientID!).Distinct().ToList();
+        var contractIds = contracts.Select(c => c.ContractID).ToList();
+
+        var clients = await _db.Clients.IgnoreQueryFilters().Where(c => clientIds.Contains(c.ClientID)).ToListAsync();
+        var agencies = await _db.Agences.IgnoreQueryFilters().Where(a => contracts.Select(c => c.AgenceID).Contains(a.AgenceID)).ToListAsync();
+        var collectorIds = contracts.Where(c => c.CollectorID != null).Select(c => c.CollectorID!).Distinct().ToList();
+        var collectors = await _db.Collectors.IgnoreQueryFilters().Where(c => collectorIds.Contains(c.CollectorID)).ToListAsync();
+        var contractTypeIds = contracts.Where(c => c.ContractTypeID.HasValue).Select(c => c.ContractTypeID!.Value).Distinct().ToList();
+        var contractTypes = await _db.ContractTypes.Where(ct => contractTypeIds.Contains(ct.ContractTypeID)).ToListAsync();
+        var commissionTypeIds = contracts.Where(c => c.CommissionTypeID.HasValue).Select(c => c.CommissionTypeID!.Value).Distinct().ToList();
+        var commissionTypes = await _db.CommissionTypes.Where(ct => commissionTypeIds.Contains(ct.CommissionTypeID)).ToListAsync();
+        var accounts = await _db.Accounts.IgnoreQueryFilters().Where(a => a.ContractID.HasValue && contractIds.Contains(a.ContractID.Value)).ToListAsync();
+        var commissions = await _db.Transactions.IgnoreQueryFilters()
+            .Where(t => t.AccountID != null)
+            .ToListAsync();
+
+        var result = contracts.Select(c =>
+        {
+            var client = clients.FirstOrDefault(x => x.ClientID == c.ClientID);
+            var agence = agencies.FirstOrDefault(a => a.AgenceID == c.AgenceID);
+            var collector = collectors.FirstOrDefault(x => x.CollectorID == c.CollectorID);
+            var contractType = contractTypes.FirstOrDefault(ct => ct.ContractTypeID == c.ContractTypeID);
+            var commissionType = commissionTypes.FirstOrDefault(ct => ct.CommissionTypeID == c.CommissionTypeID);
+            var account = accounts.FirstOrDefault(a => a.ContractID == c.ContractID);
+            var commissionTotal = account != null ? commissions.Where(t => t.AccountID == account.AccountID).Sum(t => t.MontantCommission) : 0;
+
+            return new ContractReportRowDto(
+                c.ContractID, c.ContractNumber, c.ClientID ?? "—", client != null ? $"{client.Nom} {client.Prenom}".Trim() : c.ClientID ?? "—",
+                agence?.Nom ?? "—", collector != null ? $"{collector.Name} {collector.Surname}".Trim() : null,
+                contractType?.ContractName, commissionType?.Name,
+                account?.Balance, commissionTotal, c.Statut, c.StartDate, c.EndDate
+            );
+        });
+
+        return Ok(result);
+    }
+
+    [HttpGet("contracts/{id:int}")]
+    public async Task<ActionResult<ContractReportDetailDto>> ContractDetail(int id)
+    {
+        var c = await _db.Contracts.FirstOrDefaultAsync(x => x.ContractID == id)
+            ?? throw new KeyNotFoundException("Contrat introuvable.");
+
+        var client = c.ClientID != null ? await _db.Clients.IgnoreQueryFilters().FirstOrDefaultAsync(x => x.ClientID == c.ClientID) : null;
+        var agence = await _db.Agences.IgnoreQueryFilters().FirstOrDefaultAsync(a => a.AgenceID == c.AgenceID);
+        var collector = c.CollectorID != null ? await _db.Collectors.IgnoreQueryFilters().FirstOrDefaultAsync(x => x.CollectorID == c.CollectorID) : null;
+        var contractType = c.ContractTypeID != null ? await _db.ContractTypes.FirstOrDefaultAsync(ct => ct.ContractTypeID == c.ContractTypeID.Value) : null;
+        var commissionType = c.CommissionTypeID != null ? await _db.CommissionTypes.FirstOrDefaultAsync(ct => ct.CommissionTypeID == c.CommissionTypeID.Value) : null;
+        var account = await _db.Accounts.IgnoreQueryFilters().FirstOrDefaultAsync(a => a.ContractID == c.ContractID);
+
+        var tx = account != null
+            ? await _db.Transactions.IgnoreQueryFilters().Where(t => t.AccountID == account.AccountID && t.TransactionType == Entities.TransactionType.DAILY_COLLECTION).ToListAsync()
+            : new List<Entities.Transactions>();
+        var totalCollected = tx.Sum(t => t.Montant);
+        var commissionGenerated = tx.Sum(t => t.MontantCommission);
+
+        return Ok(new ContractReportDetailDto(
+            c.ContractID, c.ContractNumber, c.ClientID ?? "—", client != null ? $"{client.Nom} {client.Prenom}".Trim() : c.ClientID ?? "—",
+            agence?.Nom ?? "—", collector != null ? $"{collector.Name} {collector.Surname}".Trim() : null,
+            contractType?.ContractName, commissionType?.Name,
+            c.StartDate, c.EndDate, c.Statut, c.TerminationReason, c.TerminationDate,
+            account?.AccountID, account?.Balance,
+            totalCollected, tx.Count, tx.Count > 0 ? totalCollected / tx.Count : 0,
+            commissionGenerated, totalCollected > 0 ? commissionGenerated / totalCollected * 100 : null
+        ));
+    }
+
+    [HttpGet("contracts/stats")]
+    public async Task<ActionResult<ContractReportStatsDto>> ContractStats()
+    {
+        var in30Days = DateTime.UtcNow.AddDays(30);
+        var contracts = await _db.Contracts.ToListAsync();
+        var accounts = await _db.Accounts.IgnoreQueryFilters().ToListAsync();
+        var accountIds = accounts.Select(a => a.AccountID).ToHashSet();
+        var commissions = await _db.Transactions.IgnoreQueryFilters().Where(t => accountIds.Contains(t.AccountID)).SumAsync(t => t.MontantCommission);
+
+        return Ok(new ContractReportStatsDto(
+            contracts.Count,
+            contracts.Count(c => c.Statut == "ACTIVE"),
+            contracts.Count(c => c.Statut == "TERMINATED"),
+            contracts.Count(c => c.Statut == "ACTIVE" && c.EndDate.HasValue && c.EndDate.Value <= in30Days),
+            commissions
+        ));
+    }
 }
