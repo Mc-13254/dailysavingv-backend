@@ -450,7 +450,8 @@ public class AppDbContext : DbContext
         modelBuilder.Entity<Client>().HasIndex(c => c.NumeroCNI).IsUnique().HasFilter("[NumeroCNI] IS NOT NULL");
         modelBuilder.Entity<Client>().HasIndex(c => c.PhoneNumber).IsUnique().HasFilter("[PhoneNumber] IS NOT NULL");
         // Only one ACTIVE contract per client.
-        modelBuilder.Entity<Contract>().HasIndex(c => c.ClientID).IsUnique().HasFilter("[Statut] = 'ACTIVE'");
+        // A client may hold several active contracts (one per savings product),
+        // so no uniqueness constraint on Contract.ClientID anymore.
         // Only one account per contract.
         modelBuilder.Entity<Accounts>().HasIndex(a => a.ContractID).IsUnique().HasFilter("[ContractID] IS NOT NULL");
         modelBuilder.Entity<Transactions>().Property(x => x.Montant).HasColumnType("decimal(18,2)");

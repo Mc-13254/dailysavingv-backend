@@ -55,17 +55,14 @@ public class ContractController : ControllerBase
         return Ok(result);
     }
 
-    // GET api/contract/eligible-clients -> validated clients without an ACTIVE contract yet
+    // GET api/contract/eligible-clients -> every validated client. A client can hold
+    // several contracts (e.g. one per savings product), so no longer restricted to
+    // clients without an existing contract.
     [HttpGet("eligible-clients")]
     public async Task<ActionResult<IEnumerable<ClientDto>>> GetEligibleClients()
     {
-        var clientsWithActiveContract = await _db.Contracts
-            .Where(c => c.Statut == "ACTIVE" && c.ClientID != null)
-            .Select(c => c.ClientID!)
-            .ToListAsync();
-
         var clients = await _db.Clients
-            .Where(c => c.ValidationStatus == "VALIDATED" && !clientsWithActiveContract.Contains(c.ClientID))
+            .Where(c => c.ValidationStatus == "VALIDATED")
             .ToListAsync();
 
         return Ok(clients.Select(c => new ClientDto(
@@ -81,9 +78,6 @@ public class ContractController : ControllerBase
 
         if (client.ValidationStatus != "VALIDATED")
             return BadRequest(new { message = "Un contrat ne peut être créé que pour un client Actif (validé)." });
-
-        if (await _db.Contracts.AnyAsync(c => c.ClientID == request.ClientID && c.Statut == "ACTIVE"))
-            return BadRequest(new { message = "Ce client possède déjà un contrat d'épargne journalière actif." });
 
         var count = await _db.Contracts.IgnoreQueryFilters().CountAsync();
         var contractNumber = $"CT-{(count + 1):D6}";
