@@ -523,7 +523,9 @@ public class AppDbContext : DbContext
         modelBuilder.Entity<CashVariance>().Property(x => x.VarianceAmount).HasColumnType("decimal(18,2)");
 
         modelBuilder.Entity<TransactionImportBatch>().ToTable("TransactionImportBatch");
+        modelBuilder.Entity<TransactionImportBatch>().HasKey(x => x.BatchID);
         modelBuilder.Entity<TransactionImportRow>().ToTable("TransactionImportRow");
+        modelBuilder.Entity<TransactionImportRow>().HasKey(x => x.RowID);
         modelBuilder.Entity<TransactionImportRow>().Property(x => x.Montant).HasColumnType("decimal(18,2)");
         modelBuilder.Entity<TransactionImportRow>()
             .HasOne(r => r.Batch)
