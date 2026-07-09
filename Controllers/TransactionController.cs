@@ -207,7 +207,7 @@ public class TransactionController : ControllerBase
         try
         {
             var receipt = await _transactionService.CreateAndValidateAsync(
-                new CreateTransactionRequest(txType, row.AccountID, row.ToAccountID, row.CollectorID, row.Montant, row.RemitterName, row.BeneficiaryName),
+               new CreateTransactionRequest(txType, row.AccountID, row.ToAccountID, row.CollectorID, row.Montant, row.RemitterName, row.BeneficiaryName, null, null),
                 _currentUser.CodeUser!);
 
             row.Status = "APPROVED";
