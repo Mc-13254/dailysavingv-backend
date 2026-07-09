@@ -47,6 +47,10 @@ public class AppDbContext : DbContext
     public DbSet<Users> Users => Set<Users>();
     public DbSet<RefreshToken> RefreshTokens => Set<RefreshToken>();
     public DbSet<FailedLoginAttempt> FailedLoginAttempts => Set<FailedLoginAttempt>();
+    public DbSet<PasswordPolicy> PasswordPolicies => Set<PasswordPolicy>();
+    public DbSet<PasswordHistory> PasswordHistories => Set<PasswordHistory>();
+    public DbSet<ApiKey> ApiKeys => Set<ApiKey>();
+    public DbSet<ErrorLog> ErrorLogs => Set<ErrorLog>();
 
     // Core business (agency-scoped)
     public DbSet<Collector> Collectors => Set<Collector>();

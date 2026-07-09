@@ -229,6 +229,7 @@ public class UsersController : ControllerBase
                 CodeUser = newId,
                 Username = draft.Username!,
                 PasswordHash = draft.PasswordHash!,
+                MustChangePassword = true,
                 Email = draft.Email,
                 Phone = draft.Phone,
                 Adresse = draft.Adresse,
@@ -289,7 +290,7 @@ public class UsersController : ControllerBase
             if (draft.PlafondCollect.HasValue) existing.PlafondCollect = draft.PlafondCollect;
             if (draft.Caution.HasValue) existing.Caution = draft.Caution;
             if (draft.Statut != null) existing.Statut = draft.Statut;
-            if (draft.PasswordHash != null) existing.PasswordHash = draft.PasswordHash;
+            if (draft.PasswordHash != null) { existing.PasswordHash = draft.PasswordHash; existing.MustChangePassword = true; }
             existing.LastUserModif = _currentUser.CodeUser;
             existing.DateModification = DateTime.UtcNow;
         }

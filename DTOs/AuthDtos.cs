@@ -11,7 +11,8 @@ public record LoginResponse(
     string? AgenceCode,
     string AccessToken,
     string RefreshToken,
-    DateTime AccessTokenExpiresAt
+    DateTime AccessTokenExpiresAt,
+    bool MustChangePassword
 );
 
 public record RefreshRequest(string RefreshToken);

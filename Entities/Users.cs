@@ -58,6 +58,8 @@ public class Users
     public string? CreatedBy { get; set; }
     public DateTime CreatedDate { get; set; } = DateTime.UtcNow;
     public DateTime? LastLogin { get; set; }
+    public bool MustChangePassword { get; set; }
+    public DateTime? PasswordChangedDate { get; set; }
 
     // Audit trail
     public string? UserValidation { get; set; }
@@ -78,6 +80,62 @@ public class FailedLoginAttempt
     public string? IPAddress { get; set; }
     public string? UserAgent { get; set; }
     public DateTime AttemptDate { get; set; } = DateTime.UtcNow;
+}
+
+// ---- Password Policy (single global policy — simplification: not per-role) ----
+public class PasswordPolicy
+{
+    public int PasswordPolicyID { get; set; }
+    public int MinimumLength { get; set; } = 8;
+    public int MaximumLength { get; set; } = 64;
+    public bool RequireUppercase { get; set; } = true;
+    public bool RequireLowercase { get; set; } = true;
+    public bool RequireNumber { get; set; } = true;
+    public bool RequireSpecialCharacter { get; set; } = true;
+    public int PasswordExpirationDays { get; set; } = 90; // 0 = never expires
+    public int PasswordHistoryCount { get; set; } = 5;
+    public string? UpdatedBy { get; set; }
+    public DateTime? UpdatedDate { get; set; }
+}
+
+public class PasswordHistory
+{
+    public int PasswordHistoryID { get; set; }
+    public string CodeUser { get; set; } = null!;
+    public string PasswordHash { get; set; } = null!;
+    public DateTime ChangedDate { get; set; } = DateTime.UtcNow;
+    public string? ChangedBy { get; set; }
+}
+
+// ---- API Management (simplified: key issuance/revocation, no enforcement middleware yet) ----
+public class ApiKey
+{
+    public int ApiKeyID { get; set; }
+    public string Name { get; set; } = null!;
+    public string KeyHash { get; set; } = null!;     // never store the raw key
+    public string KeyPrefix { get; set; } = null!;   // first few chars shown in the UI for identification
+    public string? Description { get; set; }
+    public DateTime? ExpiryDate { get; set; }
+    public bool IsActive { get; set; } = true;
+    public DateTime? LastUsedDate { get; set; }
+    public string CreatedBy { get; set; } = null!;
+    public DateTime CreatedDate { get; set; } = DateTime.UtcNow;
+    public string? RevokedBy { get; set; }
+    public DateTime? RevokedDate { get; set; }
+}
+
+// ---- Error Logs ----
+public class ErrorLog
+{
+    public long ErrorLogID { get; set; }
+    public string Message { get; set; } = null!;
+    public string? ExceptionType { get; set; }
+    public string? StackTrace { get; set; }
+    public string? RequestPath { get; set; }
+    public string? RequestMethod { get; set; }
+    public string? CodeUser { get; set; }
+    public string? IPAddress { get; set; }
+    public DateTime OccurredDate { get; set; } = DateTime.UtcNow;
 }
 
 public class RefreshToken

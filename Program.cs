@@ -98,6 +98,40 @@ builder.Services.AddCors(options =>
 
 var app = builder.Build();
 
+// Logs every unhandled exception to ErrorLogs (Security > Error Logs / System
+// Health), then rethrows so existing error responses are unaffected.
+app.Use(async (context, next) =>
+{
+    try
+    {
+        await next();
+    }
+    catch (Exception ex) when (ex is not (System.Threading.Tasks.TaskCanceledException or OperationCanceledException))
+    {
+        try
+        {
+            using var scope = context.RequestServices.CreateScope();
+            var db = scope.ServiceProvider.GetRequiredService<DailySavingV.API.Data.AppDbContext>();
+            db.ErrorLogs.Add(new DailySavingV.API.Entities.ErrorLog
+            {
+                Message = ex.Message,
+                ExceptionType = ex.GetType().Name,
+                StackTrace = ex.StackTrace,
+                RequestPath = context.Request.Path,
+                RequestMethod = context.Request.Method,
+                CodeUser = context.User?.FindFirst("codeUser")?.Value,
+                IPAddress = context.Connection.RemoteIpAddress?.ToString()
+            });
+            await db.SaveChangesAsync();
+        }
+        catch
+        {
+            // Never let logging failures mask the original exception.
+        }
+        throw;
+    }
+});
+
 if (app.Environment.IsDevelopment())
 {
     app.UseSwagger();
