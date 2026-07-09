@@ -62,3 +62,31 @@ public record CashSessionReportStatsDto(
     decimal TotalExpectedCash, decimal TotalPhysicalCash, decimal TotalVariance,
     double AverageSessionDurationHours
 );
+
+// ---- Client Reports ----
+
+public record ClientReportRowDto(
+    string ClientID, string ClientName, string? PhoneNumber, string AgenceNom,
+    string? CollectorName, int AccountCount, decimal TotalBalance, int ContractCount,
+    int CollectionCount, decimal CollectionAmount, DateTime? LastTransactionDate,
+    string ValidationStatus, bool IsBlacklisted, DateTime CreatedDate
+);
+
+public record ClientReportDetailDto(
+    string ClientID, string ClientName, string? PhoneNumber, string? Email, string? Address,
+    string? Sexe, DateTime? DateOfBirth, string? Nationality, string? Occupation,
+    string AgenceNom, string? CollectorName, string? ZoneNom,
+    string ValidationStatus, bool IsBlacklisted, string? RiskLevel, DateTime CreatedDate,
+    List<ClientAccountSummaryDto> Accounts,
+    List<ClientContractSummaryDto> Contracts,
+    decimal TotalCollections, decimal TotalDeposits, decimal TotalWithdrawals, decimal TotalTransfers,
+    int TransactionCount, DateTime? LastTransactionDate
+);
+
+public record ClientAccountSummaryDto(string AccountID, string? AccountType, decimal Balance, string Status);
+public record ClientContractSummaryDto(int ContractID, string ContractNumber, string? ContractTypeName, string Statut, DateTime? StartDate);
+
+public record ClientReportStatsDto(
+    int TotalClients, int ActiveClients, int PendingClients, int BlockedClients,
+    int NewThisMonth, int ClientsWithAccounts, int ClientsWithContracts
+);

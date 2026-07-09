@@ -245,4 +245,111 @@ public class ReportsController : ControllerBase
             durations.Count > 0 ? durations.Average() : 0
         ));
     }
+
+    // ---- Client Reports -----------------------------------------------
+
+    [HttpGet("clients")]
+    public async Task<ActionResult<IEnumerable<ClientReportRowDto>>> ClientReport(
+        [FromQuery] string? search, [FromQuery] string? status, [FromQuery] int? agenceId,
+        [FromQuery] string? collectorId, [FromQuery] bool? blacklisted)
+    {
+        var query = _db.Clients.AsQueryable();
+        if (!string.IsNullOrWhiteSpace(search))
+            query = query.Where(c => c.Nom.Contains(search) || c.ClientID.Contains(search) || (c.PhoneNumber != null && c.PhoneNumber.Contains(search)));
+        if (!string.IsNullOrWhiteSpace(status)) query = query.Where(c => c.ValidationStatus == status);
+        if (agenceId.HasValue) query = query.Where(c => c.AgenceID == agenceId.Value);
+        if (!string.IsNullOrWhiteSpace(collectorId)) query = query.Where(c => c.CollectorID == collectorId);
+        if (blacklisted.HasValue) query = query.Where(c => c.IsBlacklisted == blacklisted.Value);
+
+        var clients = await query.OrderByDescending(c => c.CreatedDate).Take(500).ToListAsync();
+        var clientIds = clients.Select(c => c.ClientID).ToList();
+
+        var agencies = await _db.Agences.IgnoreQueryFilters().Where(a => clients.Select(c => c.AgenceID).Contains(a.AgenceID)).ToListAsync();
+        var collectorIds = clients.Where(c => c.CollectorID != null).Select(c => c.CollectorID!).Distinct().ToList();
+        var collectors = await _db.Collectors.IgnoreQueryFilters().Where(c => collectorIds.Contains(c.CollectorID)).ToListAsync();
+        var accounts = await _db.Accounts.IgnoreQueryFilters().Where(a => clientIds.Contains(a.ClientID)).ToListAsync();
+        var contracts = await _db.Contracts.IgnoreQueryFilters().Where(c => c.ClientID != null && clientIds.Contains(c.ClientID)).ToListAsync();
+        var collections = await _db.Transactions.IgnoreQueryFilters()
+            .Where(t => clientIds.Contains(t.ClientID) && t.TransactionType == Entities.TransactionType.DAILY_COLLECTION)
+            .ToListAsync();
+        var lastTx = await _db.Transactions.IgnoreQueryFilters()
+            .Where(t => clientIds.Contains(t.ClientID))
+            .GroupBy(t => t.ClientID)
+            .Select(g => new { ClientID = g.Key, Last = g.Max(t => t.DateTransaction) })
+            .ToListAsync();
+
+        var result = clients.Select(c =>
+        {
+            var agence = agencies.FirstOrDefault(a => a.AgenceID == c.AgenceID);
+            var collector = collectors.FirstOrDefault(co => co.CollectorID == c.CollectorID);
+            var clientAccounts = accounts.Where(a => a.ClientID == c.ClientID).ToList();
+            var clientCollections = collections.Where(t => t.ClientID == c.ClientID).ToList();
+            var last = lastTx.FirstOrDefault(l => l.ClientID == c.ClientID);
+
+            return new ClientReportRowDto(
+                c.ClientID, $"{c.Nom} {c.Prenom}".Trim(), c.PhoneNumber, agence?.Nom ?? "—",
+                collector != null ? $"{collector.Name} {collector.Surname}".Trim() : null,
+                clientAccounts.Count, clientAccounts.Sum(a => a.Balance),
+                contracts.Count(ct => ct.ClientID == c.ClientID),
+                clientCollections.Count, clientCollections.Sum(t => t.Montant), last?.Last,
+                c.ValidationStatus, c.IsBlacklisted, c.CreatedDate
+            );
+        });
+
+        return Ok(result);
+    }
+
+    [HttpGet("clients/{id}")]
+    public async Task<ActionResult<ClientReportDetailDto>> ClientDetail(string id)
+    {
+        var c = await _db.Clients.FirstOrDefaultAsync(x => x.ClientID == id)
+            ?? throw new KeyNotFoundException("Client introuvable.");
+
+        var agence = await _db.Agences.IgnoreQueryFilters().FirstOrDefaultAsync(a => a.AgenceID == c.AgenceID);
+        var collector = c.CollectorID != null ? await _db.Collectors.IgnoreQueryFilters().FirstOrDefaultAsync(co => co.CollectorID == c.CollectorID) : null;
+        var zone = c.ZoneCollecteID != null ? await _db.ZoneCollectes.FirstOrDefaultAsync(z => z.ZoneCollecteID == c.ZoneCollecteID.Value) : null;
+
+        var accounts = await _db.Accounts.IgnoreQueryFilters().Where(a => a.ClientID == c.ClientID).ToListAsync();
+        var contracts = await _db.Contracts.IgnoreQueryFilters().Where(ct => ct.ClientID == c.ClientID).ToListAsync();
+        var contractTypeIds = contracts.Where(ct => ct.ContractTypeID.HasValue).Select(ct => ct.ContractTypeID!.Value).Distinct().ToList();
+        var contractTypes = await _db.ContractTypes.Where(ctp => contractTypeIds.Contains(ctp.ContractTypeID)).ToListAsync();
+
+        var tx = await _db.Transactions.IgnoreQueryFilters().Where(t => t.ClientID == c.ClientID).ToListAsync();
+        decimal SumOf(Entities.TransactionType type) => tx.Where(t => t.TransactionType == type).Sum(t => t.Montant);
+
+        return Ok(new ClientReportDetailDto(
+            c.ClientID, $"{c.Nom} {c.Prenom}".Trim(), c.PhoneNumber, c.Email, c.Address,
+            c.Sexe, c.DateOfBirth, c.Nationality, c.Occupation,
+            agence?.Nom ?? "—", collector != null ? $"{collector.Name} {collector.Surname}".Trim() : null, zone?.Libelle,
+            c.ValidationStatus, c.IsBlacklisted, c.RiskLevel, c.CreatedDate,
+            accounts.Select(a => new ClientAccountSummaryDto(a.AccountID, a.AccountType, a.Balance, a.Status)).ToList(),
+            contracts.Select(ct => new ClientContractSummaryDto(
+                ct.ContractID, ct.ContractNumber,
+                contractTypes.FirstOrDefault(x => x.ContractTypeID == ct.ContractTypeID)?.ContractName,
+                ct.Statut, ct.StartDate
+            )).ToList(),
+            SumOf(Entities.TransactionType.DAILY_COLLECTION), SumOf(Entities.TransactionType.DEPOSIT),
+            SumOf(Entities.TransactionType.WITHDRAWAL), SumOf(Entities.TransactionType.TRANSFER),
+            tx.Count, tx.Count > 0 ? tx.Max(t => t.DateTransaction) : null
+        ));
+    }
+
+    [HttpGet("clients/stats")]
+    public async Task<ActionResult<ClientReportStatsDto>> ClientStats()
+    {
+        var monthStart = new DateTime(DateTime.UtcNow.Year, DateTime.UtcNow.Month, 1);
+        var clients = await _db.Clients.ToListAsync();
+        var accountedClientIds = (await _db.Accounts.IgnoreQueryFilters().Select(a => a.ClientID).Distinct().ToListAsync()).ToHashSet();
+        var contractedClientIds = (await _db.Contracts.IgnoreQueryFilters().Where(c => c.ClientID != null).Select(c => c.ClientID!).Distinct().ToListAsync()).ToHashSet();
+
+        return Ok(new ClientReportStatsDto(
+            clients.Count,
+            clients.Count(c => c.ValidationStatus == "VALIDATED" && !c.IsBlacklisted),
+            clients.Count(c => c.ValidationStatus == "PENDING"),
+            clients.Count(c => c.IsBlacklisted),
+            clients.Count(c => c.CreatedDate >= monthStart),
+            clients.Count(c => accountedClientIds.Contains(c.ClientID)),
+            clients.Count(c => contractedClientIds.Contains(c.ClientID))
+        ));
+    }
 }
