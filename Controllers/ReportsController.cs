@@ -542,4 +542,192 @@ public class ReportsController : ControllerBase
             commissions
         ));
     }
+
+    // ---- Commission Reports -----------------------------------------------
+
+    [HttpGet("commissions")]
+    public async Task<ActionResult<IEnumerable<CommissionReportRowDto>>> CommissionReport(
+        [FromQuery] string? collectorId, [FromQuery] int? agenceId, [FromQuery] int? commissionTypeId,
+        [FromQuery] DateTime? from, [FromQuery] DateTime? to)
+    {
+        var query = _db.Transactions.Where(t => t.MontantCommission > 0);
+        if (!string.IsNullOrWhiteSpace(collectorId)) query = query.Where(t => t.CollectorID == collectorId);
+        if (agenceId.HasValue) query = query.Where(t => t.AgenceID == agenceId.Value);
+        if (commissionTypeId.HasValue) query = query.Where(t => t.CommissionTypeID == commissionTypeId.Value);
+        if (from.HasValue) query = query.Where(t => t.DateTransaction >= from.Value);
+        if (to.HasValue) query = query.Where(t => t.DateTransaction <= to.Value.AddDays(1).AddTicks(-1));
+
+        var tx = await query.OrderByDescending(t => t.DateTransaction).Take(500).ToListAsync();
+
+        var clientIds = tx.Select(t => t.ClientID).Distinct().ToList();
+        var clients = await _db.Clients.IgnoreQueryFilters().Where(c => clientIds.Contains(c.ClientID)).ToListAsync();
+        var collectorIds = tx.Where(t => t.CollectorID != null).Select(t => t.CollectorID!).Distinct().ToList();
+        var collectors = await _db.Collectors.IgnoreQueryFilters().Where(c => collectorIds.Contains(c.CollectorID)).ToListAsync();
+        var agencies = await _db.Agences.IgnoreQueryFilters().Where(a => tx.Select(t => t.AgenceID).Contains(a.AgenceID)).ToListAsync();
+        var commissionTypeIds = tx.Where(t => t.CommissionTypeID.HasValue).Select(t => t.CommissionTypeID!.Value).Distinct().ToList();
+        var commissionTypes = await _db.CommissionTypes.Where(ct => commissionTypeIds.Contains(ct.CommissionTypeID)).ToListAsync();
+        var accountIds = tx.Select(t => t.AccountID).Distinct().ToList();
+        var accounts = await _db.Accounts.IgnoreQueryFilters().Where(a => accountIds.Contains(a.AccountID)).ToListAsync();
+
+        var result = tx.Select(t =>
+        {
+            var client = clients.FirstOrDefault(c => c.ClientID == t.ClientID);
+            var collector = collectors.FirstOrDefault(c => c.CollectorID == t.CollectorID);
+            var agence = agencies.FirstOrDefault(a => a.AgenceID == t.AgenceID);
+            var commType = commissionTypes.FirstOrDefault(ct => ct.CommissionTypeID == t.CommissionTypeID);
+            var account = accounts.FirstOrDefault(a => a.AccountID == t.AccountID);
+
+            return new CommissionReportRowDto(
+                t.TransactionID, t.ReceiptNumber, t.CollectorID, collector != null ? $"{collector.Name} {collector.Surname}".Trim() : null,
+                agence?.Nom ?? "—", t.ClientID, client != null ? $"{client.Nom} {client.Prenom}".Trim() : t.ClientID,
+                account?.ContractID?.ToString(), commType?.Name, t.Montant, t.MontantCommission, t.DateTransaction
+            );
+        });
+
+        return Ok(result);
+    }
+
+    [HttpGet("commissions/by-collector")]
+    public async Task<ActionResult<IEnumerable<CommissionByGroupDto>>> CommissionByCollector()
+    {
+        var tx = await _db.Transactions.Where(t => t.MontantCommission > 0 && t.CollectorID != null).ToListAsync();
+        var collectorIds = tx.Select(t => t.CollectorID!).Distinct().ToList();
+        var collectors = await _db.Collectors.IgnoreQueryFilters().Where(c => collectorIds.Contains(c.CollectorID)).ToListAsync();
+
+        var grouped = tx.GroupBy(t => t.CollectorID).Select(g =>
+        {
+            var collector = collectors.FirstOrDefault(c => c.CollectorID == g.Key);
+            return new CommissionByGroupDto(collector != null ? $"{collector.Name} {collector.Surname}".Trim() : g.Key!, g.Sum(t => t.MontantCommission), g.Sum(t => t.Montant), g.Count());
+        }).OrderByDescending(x => x.CommissionAmount).Take(10);
+
+        return Ok(grouped);
+    }
+
+    [HttpGet("commissions/by-agency")]
+    public async Task<ActionResult<IEnumerable<CommissionByGroupDto>>> CommissionByAgency()
+    {
+        var tx = await _db.Transactions.Where(t => t.MontantCommission > 0).ToListAsync();
+        var agencies = await _db.Agences.IgnoreQueryFilters().Where(a => tx.Select(t => t.AgenceID).Contains(a.AgenceID)).ToListAsync();
+
+        var grouped = tx.GroupBy(t => t.AgenceID).Select(g =>
+        {
+            var agence = agencies.FirstOrDefault(a => a.AgenceID == g.Key);
+            return new CommissionByGroupDto(agence?.Nom ?? $"Agence {g.Key}", g.Sum(t => t.MontantCommission), g.Sum(t => t.Montant), g.Count());
+        }).OrderByDescending(x => x.CommissionAmount);
+
+        return Ok(grouped);
+    }
+
+    [HttpGet("commissions/stats")]
+    public async Task<ActionResult<CommissionReportStatsDto>> CommissionStats()
+    {
+        var today = DateTime.UtcNow.Date;
+        var monthStart = new DateTime(today.Year, today.Month, 1);
+        var yearStart = new DateTime(today.Year, 1, 1);
+        var tx = await _db.Transactions.Where(t => t.MontantCommission > 0).ToListAsync();
+
+        return Ok(new CommissionReportStatsDto(
+            tx.Sum(t => t.MontantCommission),
+            tx.Where(t => t.DateTransaction >= today).Sum(t => t.MontantCommission),
+            tx.Where(t => t.DateTransaction >= monthStart).Sum(t => t.MontantCommission),
+            tx.Where(t => t.DateTransaction >= yearStart).Sum(t => t.MontantCommission),
+            tx.Count > 0 ? tx.Average(t => t.MontantCommission) : 0,
+            tx.Count > 0 ? tx.Max(t => t.MontantCommission) : 0,
+            tx.Count > 0 ? tx.Min(t => t.MontantCommission) : 0
+        ));
+    }
+
+    // ---- Agency Reports -----------------------------------------------
+
+    [HttpGet("agencies")]
+    public async Task<ActionResult<IEnumerable<AgencyReportRowDto>>> AgencyReport()
+    {
+        var agencies = await _db.Agences.IgnoreQueryFilters().ToListAsync();
+        var managers = await _db.Users.IgnoreQueryFilters().Where(u => agencies.Select(a => a.ManagerId).Contains(u.CodeUser)).ToListAsync();
+        var collectors = await _db.Collectors.IgnoreQueryFilters().ToListAsync();
+        var clients = await _db.Clients.IgnoreQueryFilters().ToListAsync();
+        var accounts = await _db.Accounts.IgnoreQueryFilters().ToListAsync();
+        var tx = await _db.Transactions.IgnoreQueryFilters().ToListAsync();
+        var sessions = await _db.CashSessions.ToListAsync();
+
+        var rows = agencies.Select(a =>
+        {
+            var manager = managers.FirstOrDefault(u => u.CodeUser == a.ManagerId);
+            var agencyTx = tx.Where(t => t.AgenceID == a.AgenceID).ToList();
+            decimal SumOf(Entities.TransactionType type) => agencyTx.Where(t => t.TransactionType == type).Sum(t => t.Montant);
+            var agencySessions = sessions.Where(s => s.AgenceID == a.AgenceID && s.CashDifference.HasValue).ToList();
+
+            return new AgencyReportRowDto(
+                a.AgenceID, a.CodeAgence, a.Nom, manager != null ? $"{manager.FirstName} {manager.LastName}".Trim() : null,
+                collectors.Count(c => c.AgenceID == a.AgenceID), clients.Count(c => c.AgenceID == a.AgenceID),
+                accounts.Count(acc => acc.AgenceID == a.AgenceID),
+                SumOf(Entities.TransactionType.DAILY_COLLECTION), SumOf(Entities.TransactionType.DEPOSIT),
+                SumOf(Entities.TransactionType.WITHDRAWAL), SumOf(Entities.TransactionType.TRANSFER),
+                agencyTx.Sum(t => t.MontantCommission), agencySessions.Sum(s => Math.Abs(s.CashDifference ?? 0)), 0
+            );
+        }).OrderByDescending(a => a.Collections + a.Deposits).ToList();
+
+        var ranked = rows.Select((r, i) => r with { Rank = i + 1 });
+        return Ok(ranked);
+    }
+
+    [HttpGet("agencies/{id:int}")]
+    public async Task<ActionResult<AgencyReportDetailDto>> AgencyDetail(int id)
+    {
+        var a = await _db.Agences.IgnoreQueryFilters().FirstOrDefaultAsync(x => x.AgenceID == id)
+            ?? throw new KeyNotFoundException("Agence introuvable.");
+
+        var manager = a.ManagerId != null ? await _db.Users.IgnoreQueryFilters().FirstOrDefaultAsync(u => u.CodeUser == a.ManagerId) : null;
+        var collectors = await _db.Collectors.IgnoreQueryFilters().Where(c => c.AgenceID == a.AgenceID).ToListAsync();
+        var cashiers = await _db.Users.IgnoreQueryFilters().Where(u => u.AgenceID == a.AgenceID).ToListAsync();
+        var clients = await _db.Clients.IgnoreQueryFilters().Where(c => c.AgenceID == a.AgenceID).ToListAsync();
+        var accounts = await _db.Accounts.IgnoreQueryFilters().Where(acc => acc.AgenceID == a.AgenceID).ToListAsync();
+        var contracts = await _db.Contracts.IgnoreQueryFilters().Where(c => c.AgenceID == a.AgenceID).ToListAsync();
+        var tx = await _db.Transactions.IgnoreQueryFilters().Where(t => t.AgenceID == a.AgenceID).ToListAsync();
+        var sessions = await _db.CashSessions.Where(s => s.AgenceID == a.AgenceID).ToListAsync();
+
+        decimal SumOf(Entities.TransactionType type) => tx.Where(t => t.TransactionType == type).Sum(t => t.Montant);
+
+        var allAgencies = await _db.Agences.IgnoreQueryFilters().CountAsync();
+        var allTx = await _db.Transactions.IgnoreQueryFilters().ToListAsync();
+        var ranking = allTx.GroupBy(t => t.AgenceID)
+            .Select(g => new { AgenceID = g.Key, Total = g.Sum(t => t.Montant) })
+            .OrderByDescending(x => x.Total).ToList();
+        var rank = ranking.FindIndex(x => x.AgenceID == a.AgenceID) + 1;
+
+        return Ok(new AgencyReportDetailDto(
+            a.AgenceID, a.CodeAgence, a.Nom, a.Address, a.PrimaryPhone, a.Email,
+            manager != null ? $"{manager.FirstName} {manager.LastName}".Trim() : null,
+            collectors.Count, cashiers.Count, clients.Count, accounts.Count, contracts.Count,
+            SumOf(Entities.TransactionType.DAILY_COLLECTION), SumOf(Entities.TransactionType.DEPOSIT),
+            SumOf(Entities.TransactionType.WITHDRAWAL), SumOf(Entities.TransactionType.TRANSFER),
+            tx.Sum(t => t.MontantCommission), accounts.Sum(acc => acc.Balance),
+            sessions.Count(s => s.Status == "OPEN"), sessions.Count(s => s.Status == "CLOSED"),
+            sessions.Where(s => s.CashDifference.HasValue).Sum(s => Math.Abs(s.CashDifference ?? 0)),
+            rank <= 0 ? allAgencies : rank, allAgencies
+        ));
+    }
+
+    [HttpGet("agencies/stats")]
+    public async Task<ActionResult<AgencyReportStatsDto>> AgencyStats()
+    {
+        var agencies = await _db.Agences.IgnoreQueryFilters().ToListAsync();
+        var tx = await _db.Transactions.IgnoreQueryFilters().ToListAsync();
+        var clients = await _db.Clients.IgnoreQueryFilters().CountAsync();
+        var collectors = await _db.Collectors.IgnoreQueryFilters().CountAsync();
+
+        var byAgency = tx.GroupBy(t => t.AgenceID)
+            .Select(g => new { AgenceID = g.Key, Total = g.Sum(t => t.Montant) })
+            .OrderByDescending(x => x.Total).ToList();
+
+        var top = byAgency.FirstOrDefault();
+        var bottom = byAgency.LastOrDefault();
+
+        return Ok(new AgencyReportStatsDto(
+            agencies.Count,
+            top != null ? agencies.FirstOrDefault(a => a.AgenceID == top.AgenceID)?.Nom : null,
+            bottom != null ? agencies.FirstOrDefault(a => a.AgenceID == bottom.AgenceID)?.Nom : null,
+            tx.Sum(t => t.Montant), tx.Sum(t => t.MontantCommission), clients, collectors
+        ));
+    }
 }

@@ -135,3 +135,40 @@ public record ContractReportStatsDto(
     int TotalContracts, int ActiveContracts, int TerminatedContracts,
     int ExpiringSoon, decimal TotalCommissionGenerated
 );
+
+// ---- Commission Reports ----
+
+public record CommissionReportRowDto(
+    long TransactionID, string? ReceiptNumber, string? CollectorID, string? CollectorName,
+    string AgenceNom, string ClientID, string ClientName, string? ContractNumber,
+    string? CommissionTypeName, decimal Montant, decimal MontantCommission, DateTime DateTransaction
+);
+
+public record CommissionByGroupDto(string Label, decimal CommissionAmount, decimal CollectionAmount, int Count);
+
+public record CommissionReportStatsDto(
+    decimal TotalCommission, decimal TodayCommission, decimal MonthlyCommission, decimal YearlyCommission,
+    decimal AverageCommission, decimal HighestCommission, decimal LowestCommission
+);
+
+// ---- Agency Reports ----
+
+public record AgencyReportRowDto(
+    int AgenceID, string CodeAgence, string Nom, string? ManagerName,
+    int CollectorCount, int ClientCount, int AccountCount,
+    decimal Collections, decimal Deposits, decimal Withdrawals, decimal Transfers, decimal Commission,
+    decimal CashVarianceTotal, int Rank
+);
+
+public record AgencyReportDetailDto(
+    int AgenceID, string CodeAgence, string Nom, string? Address, string? PrimaryPhone, string? Email,
+    string? ManagerName, int CollectorCount, int CashierCount, int ClientCount, int AccountCount, int ContractCount,
+    decimal Collections, decimal Deposits, decimal Withdrawals, decimal Transfers, decimal Commission,
+    decimal TotalBalance, int OpenSessions, int ClosedSessions, decimal CashVarianceTotal,
+    int Rank, int TotalAgencies
+);
+
+public record AgencyReportStatsDto(
+    int TotalAgencies, string? TopAgencyName, string? LowestAgencyName,
+    decimal TotalRevenue, decimal TotalCommission, int TotalClients, int TotalCollectors
+);
