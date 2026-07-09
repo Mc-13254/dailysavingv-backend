@@ -34,3 +34,31 @@ public record TransactionHistoryStatsDto(
 );
 
 public record ReportCenterCardDto(string Key, string Label, int Count, decimal? Amount);
+
+// ---- Cash Session Reports ----
+
+public record CashSessionReportRowDto(
+    int CashSessionID, string SessionNumber, string CodeUser, string UserFullName, string AgenceNom,
+    DateTime OpeningDate, DateTime? ClosingDate, decimal OpeningCash,
+    decimal? ExpectedCash, decimal? PhysicalCash, decimal? CashDifference,
+    decimal Collections, decimal Deposits, decimal Withdrawals, decimal Transfers,
+    string Status, bool RequiresApproval, string? ApprovalStatus
+);
+
+public record CashSessionReportDetailDto(
+    int CashSessionID, string SessionNumber, string CodeUser, string UserFullName, int AgenceID, string AgenceNom,
+    DateTime OpeningDate, decimal OpeningCash, decimal PreviousClosingCash, string? OpeningComment,
+    DateTime? ClosingDate, decimal? ExpectedCash, decimal? PhysicalCash, string? PhysicalCashBreakdownJson,
+    decimal? CashDifference, string? ClosingComment, string? ClosedBy,
+    decimal Collections, decimal Deposits, decimal Withdrawals, decimal Transfers, decimal Commission,
+    int TransactionCount,
+    string Status, bool RequiresApproval, string? ApprovalStatus, string? ApprovedBy, DateTime? ApprovalDate,
+    string? VarianceReason, string? VarianceComment
+);
+
+public record CashSessionReportStatsDto(
+    int TodaySessions, int OpenSessions, int ClosedSessions,
+    int BalancedSessions, int UnbalancedSessions,
+    decimal TotalExpectedCash, decimal TotalPhysicalCash, decimal TotalVariance,
+    double AverageSessionDurationHours
+);

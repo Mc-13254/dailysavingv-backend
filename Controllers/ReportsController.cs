@@ -156,4 +156,93 @@ public class ReportsController : ControllerBase
             new ReportCenterCardDto("active_collectors", "Collecteurs actifs", totalCollectors, null),
         });
     }
+
+    // ---- Cash Session Reports ---------------------------------------------
+
+    [HttpGet("cash-sessions")]
+    public async Task<ActionResult<IEnumerable<CashSessionReportRowDto>>> CashSessionReport(
+        [FromQuery] string? codeUser, [FromQuery] int? agenceId, [FromQuery] string? status,
+        [FromQuery] bool? balanced, [FromQuery] DateTime? from, [FromQuery] DateTime? to)
+    {
+        var query = _db.CashSessions.AsQueryable();
+        if (!string.IsNullOrWhiteSpace(codeUser)) query = query.Where(s => s.CodeUser == codeUser);
+        if (agenceId.HasValue) query = query.Where(s => s.AgenceID == agenceId.Value);
+        if (!string.IsNullOrWhiteSpace(status)) query = query.Where(s => s.Status == status);
+        if (from.HasValue) query = query.Where(s => s.OpeningDate >= from.Value);
+        if (to.HasValue) query = query.Where(s => s.OpeningDate <= to.Value.AddDays(1).AddTicks(-1));
+        if (balanced.HasValue)
+            query = balanced.Value ? query.Where(s => s.CashDifference == 0 || s.CashDifference == null) : query.Where(s => s.CashDifference != null && s.CashDifference != 0);
+
+        var sessions = await query.OrderByDescending(s => s.OpeningDate).Take(300).ToListAsync();
+
+        var users = await _db.Users.IgnoreQueryFilters().Where(u => sessions.Select(s => s.CodeUser).Contains(u.CodeUser)).ToListAsync();
+        var agencies = await _db.Agences.IgnoreQueryFilters().Where(a => sessions.Select(s => s.AgenceID).Contains(a.AgenceID)).ToListAsync();
+        var sessionIds = sessions.Select(s => s.CashSessionID).ToList();
+        var transactions = await _db.Transactions.IgnoreQueryFilters().Where(t => t.CashSessionID != null && sessionIds.Contains(t.CashSessionID.Value)).ToListAsync();
+
+        var result = sessions.Select(s =>
+        {
+            var user = users.FirstOrDefault(u => u.CodeUser == s.CodeUser);
+            var agence = agencies.FirstOrDefault(a => a.AgenceID == s.AgenceID);
+            var tx = transactions.Where(t => t.CashSessionID == s.CashSessionID).ToList();
+            decimal SumOf(Entities.TransactionType type) => tx.Where(t => t.TransactionType == type).Sum(t => t.Montant);
+
+            return new CashSessionReportRowDto(
+                s.CashSessionID, s.SessionNumber, s.CodeUser, user != null ? $"{user.FirstName} {user.LastName}".Trim() : s.CodeUser,
+                agence?.Nom ?? "—", s.OpeningDate, s.ClosingDate, s.OpeningCash,
+                s.ExpectedCash, s.PhysicalCash, s.CashDifference,
+                SumOf(Entities.TransactionType.DAILY_COLLECTION), SumOf(Entities.TransactionType.DEPOSIT),
+                SumOf(Entities.TransactionType.WITHDRAWAL), SumOf(Entities.TransactionType.TRANSFER),
+                s.Status, s.RequiresApproval, s.ApprovalStatus
+            );
+        });
+
+        return Ok(result);
+    }
+
+    [HttpGet("cash-sessions/{id:int}")]
+    public async Task<ActionResult<CashSessionReportDetailDto>> CashSessionDetail(int id)
+    {
+        var s = await _db.CashSessions.FirstOrDefaultAsync(x => x.CashSessionID == id)
+            ?? throw new KeyNotFoundException("Session de caisse introuvable.");
+
+        var user = await _db.Users.IgnoreQueryFilters().FirstOrDefaultAsync(u => u.CodeUser == s.CodeUser);
+        var agence = await _db.Agences.IgnoreQueryFilters().FirstOrDefaultAsync(a => a.AgenceID == s.AgenceID);
+        var tx = await _db.Transactions.IgnoreQueryFilters().Where(t => t.CashSessionID == s.CashSessionID).ToListAsync();
+        var variance = await _db.CashVariances.FirstOrDefaultAsync(v => v.CashSessionID == s.CashSessionID);
+
+        decimal SumOf(Entities.TransactionType type) => tx.Where(t => t.TransactionType == type).Sum(t => t.Montant);
+
+        return Ok(new CashSessionReportDetailDto(
+            s.CashSessionID, s.SessionNumber, s.CodeUser, user != null ? $"{user.FirstName} {user.LastName}".Trim() : s.CodeUser,
+            s.AgenceID, agence?.Nom ?? "—",
+            s.OpeningDate, s.OpeningCash, s.PreviousClosingCash, s.OpeningComment,
+            s.ClosingDate, s.ExpectedCash, s.PhysicalCash, s.PhysicalCashBreakdownJson,
+            s.CashDifference, s.ClosingComment, s.ClosedBy,
+            SumOf(Entities.TransactionType.DAILY_COLLECTION), SumOf(Entities.TransactionType.DEPOSIT),
+            SumOf(Entities.TransactionType.WITHDRAWAL), SumOf(Entities.TransactionType.TRANSFER),
+            tx.Sum(t => t.MontantCommission), tx.Count,
+            s.Status, s.RequiresApproval, s.ApprovalStatus, s.ApprovedBy, s.ApprovalDate,
+            variance?.Reason, variance?.Comment
+        ));
+    }
+
+    [HttpGet("cash-sessions/stats")]
+    public async Task<ActionResult<CashSessionReportStatsDto>> CashSessionStats()
+    {
+        var today = DateTime.UtcNow.Date;
+        var all = await _db.CashSessions.ToListAsync();
+        var todayCount = all.Count(s => s.OpeningDate >= today);
+        var closed = all.Where(s => s.Status == "CLOSED").ToList();
+        var balanced = closed.Count(s => s.CashDifference == 0);
+        var unbalanced = closed.Count(s => s.CashDifference != null && s.CashDifference != 0);
+        var durations = closed.Where(s => s.ClosingDate.HasValue).Select(s => (s.ClosingDate!.Value - s.OpeningDate).TotalHours).ToList();
+
+        return Ok(new CashSessionReportStatsDto(
+            todayCount, all.Count(s => s.Status == "OPEN"), closed.Count,
+            balanced, unbalanced,
+            closed.Sum(s => s.ExpectedCash ?? 0), closed.Sum(s => s.PhysicalCash ?? 0), closed.Sum(s => s.CashDifference ?? 0),
+            durations.Count > 0 ? durations.Average() : 0
+        ));
+    }
 }
