@@ -78,6 +78,9 @@ public class AppDbContext : DbContext
     public DbSet<CashMovement> CashMovements => Set<CashMovement>();
     public DbSet<DocumentRecord> Documents => Set<DocumentRecord>();
     public DbSet<Notification> Notifications => Set<Notification>();
+    public DbSet<GLAccount> GLAccounts => Set<GLAccount>();
+    public DbSet<JournalEntry> JournalEntries => Set<JournalEntry>();
+    public DbSet<JournalEntryLine> JournalEntryLines => Set<JournalEntryLine>();
     public DbSet<HistTransactions> HistTransactions => Set<HistTransactions>();
     public DbSet<BusinessCalendar> BusinessCalendars => Set<BusinessCalendar>();
     public DbSet<CashSession> CashSessions => Set<CashSession>();
@@ -521,6 +524,25 @@ public class AppDbContext : DbContext
         modelBuilder.Entity<DocumentRecord>().ToTable("Document");
         modelBuilder.Entity<DocumentRecord>().HasKey(x => x.DocumentID); // class name (DocumentRecord) doesn't match PK convention
         modelBuilder.Entity<Notification>().ToTable("Notification");
+
+        modelBuilder.Entity<GLAccount>().ToTable("GLAccount");
+        modelBuilder.Entity<GLAccount>().HasIndex(x => x.Code).IsUnique();
+        modelBuilder.Entity<GLAccount>().Property(x => x.Type).HasConversion<string>();
+
+        modelBuilder.Entity<JournalEntry>().ToTable("JournalEntry");
+        modelBuilder.Entity<JournalEntry>().HasIndex(x => x.EntryNumber).IsUnique();
+
+        modelBuilder.Entity<JournalEntryLine>().ToTable("JournalEntryLine");
+        modelBuilder.Entity<JournalEntryLine>().Property(x => x.Debit).HasColumnType("decimal(18,2)");
+        modelBuilder.Entity<JournalEntryLine>().Property(x => x.Credit).HasColumnType("decimal(18,2)");
+        modelBuilder.Entity<JournalEntryLine>()
+            .HasOne(x => x.JournalEntry).WithMany()
+            .HasForeignKey(x => x.JournalEntryID)
+            .OnDelete(DeleteBehavior.Restrict);
+        modelBuilder.Entity<JournalEntryLine>()
+            .HasOne(x => x.GLAccount).WithMany()
+            .HasForeignKey(x => x.GLAccountID)
+            .OnDelete(DeleteBehavior.Restrict);
 
         modelBuilder.Entity<Vault>().Property(x => x.Balance).HasColumnType("decimal(18,2)");
         modelBuilder.Entity<Vault>().Property(x => x.MinimumBalance).HasColumnType("decimal(18,2)");

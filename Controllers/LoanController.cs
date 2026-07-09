@@ -17,12 +17,14 @@ public class LoanController : ControllerBase
     private readonly AppDbContext _db;
     private readonly ICurrentUserService _currentUser;
     private readonly Services.INotificationService _notifications;
+    private readonly Services.IJournalPostingService _journal;
 
-    public LoanController(AppDbContext db, ICurrentUserService currentUser, Services.INotificationService notifications)
+    public LoanController(AppDbContext db, ICurrentUserService currentUser, Services.INotificationService notifications, Services.IJournalPostingService journal)
     {
         _db = db;
         _currentUser = currentUser;
         _notifications = notifications;
+        _journal = journal;
     }
 
     // ---- Loan Products (simplified: direct admin config, no Maker-Checker) ----
@@ -221,6 +223,8 @@ public class LoanController : ControllerBase
         app.Status = "DISBURSED";
         await _db.SaveChangesAsync();
 
+        await _journal.PostLoanDisbursementAsync(loan);
+
         return await GetLoanDetail(loan.LoanID);
     }
 
@@ -350,6 +354,8 @@ public class LoanController : ControllerBase
 
         await _db.SaveChangesAsync();
 
+        await _journal.PostLoanRepaymentAsync(loan, principalPaid, interestPaid, penaltyPaid, receiptNumber);
+
         return Ok(new { message = "Remboursement enregistré.", receiptNumber, loanStatus = loan.Status });
     }
 
@@ -386,9 +392,14 @@ public class LoanController : ControllerBase
         var loan = await _db.Loans.FirstOrDefaultAsync(l => l.LoanID == id)
             ?? throw new KeyNotFoundException("Prêt introuvable.");
 
+        await _journal.PostLoanWriteOffAsync(loan);
+
         loan.Status = "WRITTEN_OFF";
         loan.WriteOffReason = request.Reason;
         loan.ClosedDate = DateTime.UtcNow;
+        loan.OutstandingPrincipal = 0;
+        loan.OutstandingInterest = 0;
+        loan.OutstandingPenalty = 0;
         await _db.SaveChangesAsync();
 
         return Ok(new { message = "Prêt passé en perte (write-off)." });

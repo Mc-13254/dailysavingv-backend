@@ -16,14 +16,16 @@ public class CashSessionController : ControllerBase
     private readonly AppDbContext _db;
     private readonly ICurrentUserService _currentUser;
     private readonly Services.INotificationService _notifications;
+    private readonly Services.IJournalPostingService _journal;
 
     private const decimal VarianceApprovalThreshold = 5000m;
 
-    public CashSessionController(AppDbContext db, ICurrentUserService currentUser, Services.INotificationService notifications)
+    public CashSessionController(AppDbContext db, ICurrentUserService currentUser, Services.INotificationService notifications, Services.IJournalPostingService journal)
     {
         _db = db;
         _currentUser = currentUser;
         _notifications = notifications;
+        _journal = journal;
     }
 
     // ---- Business Calendar --------------------------------------------
@@ -194,6 +196,8 @@ public class CashSessionController : ControllerBase
         }
 
         await _db.SaveChangesAsync();
+
+        await _journal.PostCashVarianceAsync(session.AgenceID, session.CashSessionID, difference, session.SessionNumber);
 
         if (session.RequiresApproval)
         {

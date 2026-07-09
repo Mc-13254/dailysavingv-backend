@@ -50,6 +50,7 @@ builder.Services.AddScoped<ICommissionService, CommissionService>();
 builder.Services.AddScoped<ITransactionService, TransactionService>();
 builder.Services.AddScoped<ICollectorPerformanceService, CollectorPerformanceService>();
 builder.Services.AddScoped<DailySavingV.API.Services.INotificationService, DailySavingV.API.Services.NotificationService>();
+builder.Services.AddScoped<DailySavingV.API.Services.IJournalPostingService, DailySavingV.API.Services.JournalPostingService>();
 builder.Services.AddScoped<DailySavingV.API.Services.NumberingService>();
 
 // ---- JWT Authentication ----
