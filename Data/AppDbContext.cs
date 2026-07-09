@@ -74,6 +74,8 @@ public class AppDbContext : DbContext
     public DbSet<Loan> Loans => Set<Loan>();
     public DbSet<LoanInstallment> LoanInstallments => Set<LoanInstallment>();
     public DbSet<LoanRepayment> LoanRepayments => Set<LoanRepayment>();
+    public DbSet<Vault> Vaults => Set<Vault>();
+    public DbSet<CashMovement> CashMovements => Set<CashMovement>();
     public DbSet<HistTransactions> HistTransactions => Set<HistTransactions>();
     public DbSet<BusinessCalendar> BusinessCalendars => Set<BusinessCalendar>();
     public DbSet<CashSession> CashSessions => Set<CashSession>();
@@ -505,6 +507,15 @@ public class AppDbContext : DbContext
         modelBuilder.Entity<LoanRepayment>().Property(x => x.InterestPaid).HasColumnType("decimal(18,2)");
         modelBuilder.Entity<LoanRepayment>().Property(x => x.PenaltyPaid).HasColumnType("decimal(18,2)");
         modelBuilder.Entity<LoanRepayment>().HasOne(x => x.Loan).WithMany().HasForeignKey(x => x.LoanID).OnDelete(DeleteBehavior.Restrict);
+
+        modelBuilder.Entity<Vault>().Property(x => x.Balance).HasColumnType("decimal(18,2)");
+        modelBuilder.Entity<Vault>().Property(x => x.MinimumBalance).HasColumnType("decimal(18,2)");
+        modelBuilder.Entity<Vault>().Property(x => x.MaximumBalance).HasColumnType("decimal(18,2)");
+        modelBuilder.Entity<Vault>().HasOne(x => x.Agence).WithMany().HasForeignKey(x => x.AgenceID).OnDelete(DeleteBehavior.Restrict);
+        modelBuilder.Entity<Vault>().HasIndex(x => x.AgenceID).IsUnique();
+
+        modelBuilder.Entity<CashMovement>().Property(x => x.Amount).HasColumnType("decimal(18,2)");
+        modelBuilder.Entity<CashMovement>().HasIndex(x => x.MovementNumber).IsUnique();
         modelBuilder.Entity<Collector>().Property(x => x.Plafond).HasColumnType("decimal(18,2)");
         modelBuilder.Entity<Collector>().Property(x => x.Caution).HasColumnType("decimal(18,2)");
         modelBuilder.Entity<Collector>().Property(x => x.CollectMonth).HasColumnType("decimal(18,2)");
