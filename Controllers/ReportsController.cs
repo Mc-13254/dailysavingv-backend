@@ -879,4 +879,119 @@ public class ReportsController : ControllerBase
             list.Count(r => r.PendingStatus == "APPROVED"), list.Count(r => r.PendingStatus == "REJECTED"), list.Count(r => r.PendingStatus == "PENDING")
         ));
     }
+
+    // ---- Receipts -----------------------------------------------------
+
+    [HttpGet("receipts")]
+    public async Task<ActionResult<IEnumerable<ReceiptRowDto>>> Receipts(
+        [FromQuery] string? search, [FromQuery] DateTime? from, [FromQuery] DateTime? to)
+    {
+        var query = _db.Transactions.Where(t => t.ReceiptNumber != null);
+        if (!string.IsNullOrWhiteSpace(search))
+            query = query.Where(t => t.ReceiptNumber!.Contains(search) || t.ClientID.Contains(search));
+        if (from.HasValue) query = query.Where(t => t.DateTransaction >= from.Value);
+        if (to.HasValue) query = query.Where(t => t.DateTransaction <= to.Value.AddDays(1).AddTicks(-1));
+
+        var tx = await query.OrderByDescending(t => t.DateTransaction).Take(500).ToListAsync();
+        var clientIds = tx.Select(t => t.ClientID).Distinct().ToList();
+        var clients = await _db.Clients.IgnoreQueryFilters().Where(c => clientIds.Contains(c.ClientID)).ToListAsync();
+        var collectorIds = tx.Where(t => t.CollectorID != null).Select(t => t.CollectorID!).Distinct().ToList();
+        var collectors = await _db.Collectors.IgnoreQueryFilters().Where(c => collectorIds.Contains(c.CollectorID)).ToListAsync();
+        var agencies = await _db.Agences.IgnoreQueryFilters().Where(a => tx.Select(t => t.AgenceID).Contains(a.AgenceID)).ToListAsync();
+
+        var result = tx.Select(t =>
+        {
+            var client = clients.FirstOrDefault(c => c.ClientID == t.ClientID);
+            var collector = collectors.FirstOrDefault(c => c.CollectorID == t.CollectorID);
+            var agence = agencies.FirstOrDefault(a => a.AgenceID == t.AgenceID);
+            return new ReceiptRowDto(
+                t.TransactionID, t.ReceiptNumber!, t.TransactionType.ToString(),
+                client != null ? $"{client.Nom} {client.Prenom}".Trim() : t.ClientID,
+                collector != null ? $"{collector.Name} {collector.Surname}".Trim() : null,
+                agence?.Nom ?? "—", t.Montant, t.PaymentMethod, t.DateTransaction
+            );
+        });
+
+        return Ok(result);
+    }
+
+    [HttpGet("receipts/stats")]
+    public async Task<ActionResult<ReceiptStatsDto>> ReceiptStats()
+    {
+        var today = DateTime.UtcNow.Date;
+        var total = await _db.Transactions.CountAsync(t => t.ReceiptNumber != null);
+        var todayCount = await _db.Transactions.CountAsync(t => t.ReceiptNumber != null && t.DateTransaction >= today);
+        return Ok(new ReceiptStatsDto(todayCount, total));
+    }
+
+    // ---- Daily Collection Reports -----------------------------------------
+
+    [HttpGet("daily-collections")]
+    public async Task<ActionResult<IEnumerable<DailyCollectionRowDto>>> DailyCollectionReport(
+        [FromQuery] string? collectorId, [FromQuery] DateTime? from, [FromQuery] DateTime? to)
+    {
+        var query = _db.Transactions.Where(t => t.TransactionType == Entities.TransactionType.DAILY_COLLECTION);
+        if (!string.IsNullOrWhiteSpace(collectorId)) query = query.Where(t => t.CollectorID == collectorId);
+        if (from.HasValue) query = query.Where(t => t.DateTransaction >= from.Value);
+        if (to.HasValue) query = query.Where(t => t.DateTransaction <= to.Value.AddDays(1).AddTicks(-1));
+
+        var tx = await query.OrderByDescending(t => t.DateTransaction).Take(500).ToListAsync();
+        var clientIds = tx.Select(t => t.ClientID).Distinct().ToList();
+        var clients = await _db.Clients.IgnoreQueryFilters().Where(c => clientIds.Contains(c.ClientID)).ToListAsync();
+        var collectorIds = tx.Where(t => t.CollectorID != null).Select(t => t.CollectorID!).Distinct().ToList();
+        var collectors = await _db.Collectors.IgnoreQueryFilters().Where(c => collectorIds.Contains(c.CollectorID)).ToListAsync();
+        var zoneIds = collectors.Where(c => c.ZoneCollecteID.HasValue).Select(c => c.ZoneCollecteID!.Value).Distinct().ToList();
+        var zones = await _db.ZoneCollectes.Where(z => zoneIds.Contains(z.ZoneCollecteID)).ToListAsync();
+        var agencies = await _db.Agences.IgnoreQueryFilters().Where(a => tx.Select(t => t.AgenceID).Contains(a.AgenceID)).ToListAsync();
+
+        var result = tx.Select(t =>
+        {
+            var client = clients.FirstOrDefault(c => c.ClientID == t.ClientID);
+            var collector = collectors.FirstOrDefault(c => c.CollectorID == t.CollectorID);
+            var zone = collector != null ? zones.FirstOrDefault(z => z.ZoneCollecteID == collector.ZoneCollecteID) : null;
+            var agence = agencies.FirstOrDefault(a => a.AgenceID == t.AgenceID);
+
+            return new DailyCollectionRowDto(
+                t.TransactionID, t.ReceiptNumber, t.ClientID, client != null ? $"{client.Nom} {client.Prenom}".Trim() : t.ClientID,
+                collector != null ? $"{collector.Name} {collector.Surname}".Trim() : null, zone?.Libelle,
+                agence?.Nom ?? "—", t.Montant, t.MontantCommission, t.Statut, t.DateTransaction
+            );
+        });
+
+        return Ok(result);
+    }
+
+    [HttpGet("daily-collections/by-zone")]
+    public async Task<ActionResult<IEnumerable<DailyCollectionByGroupDto>>> DailyCollectionsByZone()
+    {
+        var tx = await _db.Transactions.Where(t => t.TransactionType == Entities.TransactionType.DAILY_COLLECTION && t.CollectorID != null).ToListAsync();
+        var collectorIds = tx.Select(t => t.CollectorID!).Distinct().ToList();
+        var collectors = await _db.Collectors.IgnoreQueryFilters().Where(c => collectorIds.Contains(c.CollectorID)).ToListAsync();
+        var zoneIds = collectors.Where(c => c.ZoneCollecteID.HasValue).Select(c => c.ZoneCollecteID!.Value).Distinct().ToList();
+        var zones = await _db.ZoneCollectes.Where(z => zoneIds.Contains(z.ZoneCollecteID)).ToListAsync();
+
+        var grouped = tx.GroupBy(t => collectors.FirstOrDefault(c => c.CollectorID == t.CollectorID)?.ZoneCollecteID)
+            .Select(g => new DailyCollectionByGroupDto(
+                g.Key.HasValue ? (zones.FirstOrDefault(z => z.ZoneCollecteID == g.Key.Value)?.Libelle ?? $"Zone {g.Key}") : "Sans zone",
+                g.Sum(t => t.Montant), g.Count()
+            )).OrderByDescending(x => x.Amount);
+
+        return Ok(grouped);
+    }
+
+    [HttpGet("daily-collections/stats")]
+    public async Task<ActionResult<DailyCollectionStatsDto>> DailyCollectionStats()
+    {
+        var today = DateTime.UtcNow.Date;
+        var all = await _db.Transactions.Where(t => t.TransactionType == Entities.TransactionType.DAILY_COLLECTION).ToListAsync();
+        var todayTx = all.Where(t => t.DateTransaction >= today).ToList();
+
+        return Ok(new DailyCollectionStatsDto(
+            todayTx.Count, todayTx.Sum(t => t.Montant),
+            all.Count > 0 ? all.Average(t => t.Montant) : 0,
+            all.Count > 0 ? all.Max(t => t.Montant) : 0,
+            all.Count > 0 ? all.Min(t => t.Montant) : 0,
+            all.Count(t => t.Statut == "PENDING"), all.Count(t => t.Statut is "REJECTED" or "CANCELLED")
+        ));
+    }
 }

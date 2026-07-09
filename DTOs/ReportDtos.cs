@@ -203,3 +203,33 @@ public record AuditReportStatsDto(
     int TodayEvents, int CreateCount, int UpdateCount, int DeleteCount,
     int ApprovedCount, int RejectedCount, int PendingCount
 );
+
+// ---- Receipts ----
+// Simplification: there is no separate PDF-storage/print-tracking Receipts
+// table yet — every validated transaction already carries its own unique
+// ReceiptNumber, so this report is a focused, receipt-oriented view over
+// Transactions rather than a duplicated parallel record.
+
+public record ReceiptRowDto(
+    long TransactionID, string ReceiptNumber, string TransactionType,
+    string ClientName, string? CollectorName, string AgenceNom,
+    decimal Montant, string? PaymentMethod, DateTime DateTransaction
+);
+
+public record ReceiptStatsDto(int TodayReceipts, int TotalReceipts);
+
+// ---- Daily Collection Reports ----
+
+public record DailyCollectionRowDto(
+    long TransactionID, string? ReceiptNumber, string ClientID, string ClientName,
+    string? CollectorName, string? ZoneNom, string AgenceNom,
+    decimal Montant, decimal MontantCommission, string Statut, DateTime DateTransaction
+);
+
+public record DailyCollectionByGroupDto(string Label, decimal Amount, int Count);
+
+public record DailyCollectionStatsDto(
+    int TodayCount, decimal TodayAmount, decimal AverageCollection,
+    decimal HighestCollection, decimal LowestCollection,
+    int PendingCount, int RejectedCount
+);
