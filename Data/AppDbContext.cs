@@ -68,6 +68,8 @@ public class AppDbContext : DbContext
     public DbSet<BusinessCalendar> BusinessCalendars => Set<BusinessCalendar>();
     public DbSet<CashSession> CashSessions => Set<CashSession>();
     public DbSet<CashVariance> CashVariances => Set<CashVariance>();
+    public DbSet<TransactionImportBatch> TransactionImportBatches => Set<TransactionImportBatch>();
+    public DbSet<TransactionImportRow> TransactionImportRows => Set<TransactionImportRow>();
     public DbSet<HistCalculComis> HistCalculComis => Set<HistCalculComis>();
     public DbSet<Activite> Activites => Set<Activite>();
 
@@ -84,7 +86,6 @@ public class AppDbContext : DbContext
     public DbSet<DepartmentTmp> DepartmentTmps => Set<DepartmentTmp>();
     public DbSet<ContractTypeTmp> ContractTypeTmps => Set<ContractTypeTmp>();
     public DbSet<IMFTmp> IMFTmps => Set<IMFTmp>();
-    public DbSet<TransactionsTMP> TransactionsTMPs => Set<TransactionsTMP>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -138,7 +139,6 @@ public class AppDbContext : DbContext
         modelBuilder.Entity<NumberingParameter>().ToTable("NumberingParameter");
         modelBuilder.Entity<ContractTypeTmp>().ToTable("ContractTypeTmp");
         modelBuilder.Entity<IMFTmp>().ToTable("IMFTmp");
-        modelBuilder.Entity<TransactionsTMP>().ToTable("TransactionsTMP");
 
         // ---- Keys ----
         modelBuilder.Entity<IMF>().HasKey(x => x.CodeIMF);
@@ -180,7 +180,6 @@ public class AppDbContext : DbContext
         modelBuilder.Entity<DepartmentTmp>().HasKey(x => x.PendingID);
         modelBuilder.Entity<ContractTypeTmp>().HasKey(x => x.PendingID);
         modelBuilder.Entity<IMFTmp>().HasKey(x => x.PendingID);
-        modelBuilder.Entity<TransactionsTMP>().HasKey(x => x.PendingID);
 
         // =====================================================================
         // RELATIONSHIPS: explicit FK configuration.
@@ -280,6 +279,20 @@ public class AppDbContext : DbContext
             .HasOne(x => x.Agence).WithMany()
             .HasForeignKey(x => x.AgenceID)
             .IsRequired();
+
+        // Explicit config for the second FK to Accounts (Transactions.Account
+        // already points to Accounts via AccountID) — two navigations to the
+        // same target type need to be disambiguated explicitly, the same
+        // lesson learned from the CashSession.User shadow-column bug.
+        modelBuilder.Entity<Transactions>()
+            .HasOne(x => x.ToAccount).WithMany()
+            .HasForeignKey(x => x.ToAccountID)
+            .IsRequired(false);
+
+        modelBuilder.Entity<Transactions>()
+            .HasOne(x => x.CashSession).WithMany()
+            .HasForeignKey(x => x.CashSessionID)
+            .IsRequired(false);
 
         modelBuilder.Entity<CommissionRange>()
             .HasOne(x => x.CommissionType).WithMany(x => x.Ranges)
@@ -467,7 +480,6 @@ public class AppDbContext : DbContext
         modelBuilder.Entity<CommissionRangeTmp>().Property(x => x.Minimum).HasColumnType("decimal(18,2)");
         modelBuilder.Entity<CommissionRangeTmp>().Property(x => x.Maximum).HasColumnType("decimal(18,2)");
         modelBuilder.Entity<IMFTmp>().Property(x => x.TauxTaxe).HasColumnType("decimal(5,2)");
-        modelBuilder.Entity<TransactionsTMP>().Property(x => x.Montant).HasColumnType("decimal(18,2)");
 
         modelBuilder.Entity<ContractType>().Property(x => x.MinimumCollectionAmount).HasColumnType("decimal(18,2)");
         modelBuilder.Entity<ContractType>().Property(x => x.MaximumCollectionAmount).HasColumnType("decimal(18,2)");
@@ -509,6 +521,14 @@ public class AppDbContext : DbContext
         modelBuilder.Entity<CashSession>().HasIndex(x => x.SessionNumber).IsUnique();
         modelBuilder.Entity<CashVariance>().ToTable("CashVariance");
         modelBuilder.Entity<CashVariance>().Property(x => x.VarianceAmount).HasColumnType("decimal(18,2)");
+
+        modelBuilder.Entity<TransactionImportBatch>().ToTable("TransactionImportBatch");
+        modelBuilder.Entity<TransactionImportRow>().ToTable("TransactionImportRow");
+        modelBuilder.Entity<TransactionImportRow>().Property(x => x.Montant).HasColumnType("decimal(18,2)");
+        modelBuilder.Entity<TransactionImportRow>()
+            .HasOne(r => r.Batch)
+            .WithMany(b => b.Rows)
+            .HasForeignKey(r => r.BatchID);
 
         // Business rule: at most one ACTIVE collector per zone at a time, so a
         // Client's effective collector (inherited via its Zone) is unambiguous.

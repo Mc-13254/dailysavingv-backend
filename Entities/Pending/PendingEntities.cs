@@ -338,13 +338,3 @@ public class IMFTmp : PendingBase
     public string? Timezone { get; set; }
 }
 
-public class TransactionsTMP : PendingBase
-{
-    public long? TargetTransactionID { get; set; }
-    public string? TransactionType { get; set; }
-    public string? AccountID { get; set; }
-    public string? ClientID { get; set; }
-    public string? CollectorID { get; set; }
-    public int? AgenceID { get; set; }
-    public decimal? Montant { get; set; }
-}

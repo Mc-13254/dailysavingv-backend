@@ -26,38 +26,92 @@ public class TransactionService : ITransactionService
     }
 
     /// <summary>
-    /// Requirement: "Whenever a Deposit, Withdrawal, Daily Collection, or any
-    /// other transaction is validated, the system must automatically calculate
-    /// and store the commission - no manual calculation required."
-    /// This method is the single entry point for that rule; every transaction
-    /// endpoint funnels through here so the behavior can never be skipped.
+    /// Single entry point for every financial transaction (Daily Collection,
+    /// Deposit, Withdrawal, Transfer). Requires an OPEN Cash Session, resolves
+    /// the client/account "bank receipt" style details (account, collector,
+    /// remitter, beneficiary), calculates commission automatically, updates
+    /// balance(s), and returns everything needed to print a receipt.
     /// </summary>
     public async Task<TransactionReceiptDto> CreateAndValidateAsync(CreateTransactionRequest request, string validatedByCodeUser)
     {
-        // Business rule (Cash Session module): no financial transaction can be
-        // performed before the user has opened their working day.
         var session = await _db.CashSessions
             .FirstOrDefaultAsync(s => s.CodeUser == validatedByCodeUser && s.Status == "OPEN")
             ?? throw new InvalidOperationException("Vous devez ouvrir votre session de caisse avant d'effectuer une transaction.");
 
         var account = await _db.Accounts.FirstOrDefaultAsync(a => a.AccountID == request.AccountID)
-            ?? throw new InvalidOperationException("Account not found or not in your agency.");
+            ?? throw new InvalidOperationException("Compte introuvable.");
 
-        // 1 & 2 & 3 & 4 & 5: delegate the actual calculation to the commission engine
+        if (request.Montant <= 0)
+            throw new InvalidOperationException("Le montant doit être supérieur à zéro.");
+
+        var client = await _db.Clients.FirstOrDefaultAsync(c => c.ClientID == account.ClientID);
+        var clientName = client != null ? $"{client.Nom} {client.Prenom}".Trim() : account.ClientID;
+
+        Accounts? toAccount = null;
+        Client? toClient = null;
+        if (request.TransactionType == TransactionType.TRANSFER)
+        {
+            if (string.IsNullOrWhiteSpace(request.ToAccountID))
+                throw new InvalidOperationException("Le compte bénéficiaire est requis pour un transfert.");
+            if (request.ToAccountID == request.AccountID)
+                throw new InvalidOperationException("Le compte source et le compte bénéficiaire doivent être différents.");
+
+            toAccount = await _db.Accounts.FirstOrDefaultAsync(a => a.AccountID == request.ToAccountID)
+                ?? throw new InvalidOperationException("Compte bénéficiaire introuvable.");
+            toClient = await _db.Clients.FirstOrDefaultAsync(c => c.ClientID == toAccount.ClientID);
+
+            if (account.Balance < request.Montant)
+                throw new InvalidOperationException("Solde insuffisant sur le compte source.");
+            if (account.MinimumBalance.HasValue && account.Balance - request.Montant < account.MinimumBalance.Value)
+                throw new InvalidOperationException("Cette opération ferait descendre le compte source sous son solde minimum autorisé.");
+        }
+        else if (request.TransactionType is TransactionType.WITHDRAWAL or TransactionType.LOAN_PAYMENT)
+        {
+            if (account.Balance < request.Montant)
+                throw new InvalidOperationException("Solde insuffisant.");
+            if (account.MinimumBalance.HasValue && account.Balance - request.Montant < account.MinimumBalance.Value)
+                throw new InvalidOperationException("Cette opération ferait descendre le compte sous son solde minimum autorisé.");
+        }
+
+        var openingBalance = account.Balance;
         var commission = await _commissionService.CalculateAsync(request.TransactionType, request.Montant);
+
+        // Bank-receipt fields: default Remitter/Beneficiary to the actual client
+        // name(s) if the teller didn't override them (e.g. someone deposits on
+        // behalf of the account holder, or cash handed to a different person).
+        var remitter = request.RemitterName;
+        var beneficiary = request.BeneficiaryName;
+        if (request.TransactionType == TransactionType.TRANSFER)
+        {
+            remitter ??= clientName;
+            beneficiary ??= toClient != null ? $"{toClient.Nom} {toClient.Prenom}".Trim() : toAccount?.ClientID;
+        }
+        else if (request.TransactionType is TransactionType.DEPOSIT or TransactionType.DAILY_COLLECTION)
+        {
+            remitter ??= clientName;
+            beneficiary ??= clientName; // money is for the account holder themselves
+        }
+        else // WITHDRAWAL / LOAN_PAYMENT
+        {
+            remitter ??= clientName;   // funds come out of the client's account
+            beneficiary ??= clientName; // paid out to the client themselves by default
+        }
 
         var transaction = new Transactions
         {
             TransactionType = request.TransactionType,
             AccountID = account.AccountID,
+            ToAccountID = toAccount?.AccountID,
             ClientID = account.ClientID,
             CollectorID = request.CollectorID,
             CashSessionID = session.CashSessionID,
             AgenceID = _currentUser.AgenceID ?? account.AgenceID,
             Montant = request.Montant,
+            RemitterName = remitter,
+            BeneficiaryName = beneficiary,
             CommissionTypeID = commission.CommissionTypeID,
             CommissionRangeID = commission.CommissionRangeID,
-            MontantCommission = commission.MontantCommission,      // 6. Store the commission in the transaction record
+            MontantCommission = commission.MontantCommission,
             ReceiptNumber = GenerateReceiptNumber(),
             Statut = "VALIDATED",
             CreatedBy = _currentUser.CodeUser,
@@ -67,18 +121,23 @@ public class TransactionService : ITransactionService
 
         _db.Transactions.Add(transaction);
 
-        // Apply balance movement
         switch (request.TransactionType)
         {
             case TransactionType.DEPOSIT:
             case TransactionType.DAILY_COLLECTION:
                 account.Balance += request.Montant;
+                account.AvailableBalance += request.Montant;
                 break;
             case TransactionType.WITHDRAWAL:
             case TransactionType.LOAN_PAYMENT:
-                if (account.Balance < request.Montant)
-                    throw new InvalidOperationException("Insufficient balance.");
                 account.Balance -= request.Montant;
+                account.AvailableBalance -= request.Montant;
+                break;
+            case TransactionType.TRANSFER:
+                account.Balance -= request.Montant;
+                account.AvailableBalance -= request.Montant;
+                toAccount!.Balance += request.Montant;
+                toAccount.AvailableBalance += request.Montant;
                 break;
         }
 
@@ -105,14 +164,19 @@ public class TransactionService : ITransactionService
 
         await _db.SaveChangesAsync();
 
-        // 7 & 8: receipt + reporting data - reports/dashboards simply query
-        // Transactions.MontantCommission, so nothing further is needed there.
+        string? collectorName = null;
+        if (!string.IsNullOrWhiteSpace(request.CollectorID))
+        {
+            var collector = await _db.Collectors.IgnoreQueryFilters().FirstOrDefaultAsync(c => c.CollectorID == request.CollectorID);
+            if (collector != null) collectorName = $"{collector.Name} {collector.Surname}".Trim();
+        }
+
         return new TransactionReceiptDto(
-            transaction.TransactionID,
-            transaction.ReceiptNumber!,
-            transaction.TransactionType.ToString(),
-            transaction.Montant,
-            transaction.MontantCommission,
+            transaction.TransactionID, transaction.ReceiptNumber!, transaction.TransactionType.ToString(),
+            transaction.AccountID, account.NumCarnet, transaction.ToAccountID,
+            transaction.ClientID, clientName, transaction.CollectorID, collectorName,
+            transaction.RemitterName, transaction.BeneficiaryName,
+            transaction.Montant, openingBalance, account.Balance, transaction.MontantCommission,
             transaction.DateTransaction
         );
     }

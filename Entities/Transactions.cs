@@ -24,6 +24,12 @@ public class Transactions
     public int? CashSessionID { get; set; }
     public CashSession? CashSession { get; set; }
 
+    // Only populated for TRANSFER: the other leg of the movement.
+    public string? ToAccountID { get; set; }
+    public Accounts? ToAccount { get; set; }
+    public string? ToClientID { get; set; }
+    public long? LinkedTransactionID { get; set; } // pairs the debit (sender) and credit (receiver) rows of one transfer
+
     // Agency-scoping key
     public int AgenceID { get; set; }
     public Agence? Agence { get; set; }
@@ -33,6 +39,16 @@ public class Transactions
     public int? CommissionTypeID { get; set; }
     public int? CommissionRangeID { get; set; }
     public decimal MontantCommission { get; set; }
+
+    public decimal OpeningBalance { get; set; }
+    public decimal ClosingBalance { get; set; }
+
+    // Bank-receipt style fields
+    public string? RemitterName { get; set; }    // who is handing over the money (depositor / transfer sender)
+    public string? BeneficiaryName { get; set; } // who the money is for (account holder / transfer receiver)
+    public string? PaymentMethod { get; set; }   // CASH / MOBILE_MONEY / BANK_TRANSFER / CHEQUE
+    public string? ReferenceNumber { get; set; }
+    public string? Comment { get; set; }
 
     public string? ReceiptNumber { get; set; }
     public DateTime DateTransaction { get; set; } = DateTime.UtcNow;

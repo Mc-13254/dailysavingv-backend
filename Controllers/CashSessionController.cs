@@ -109,17 +109,19 @@ public class CashSessionController : ControllerBase
         if (lastSession != null && lastSession.Status == "OPEN")
             return BadRequest(new { message = "Vous ne pouvez pas ouvrir une nouvelle session tant que la précédente n'est pas clôturée." });
 
-        // Business-hours check (soft: warns via 400 rather than silently allowing).
+        // Business-hours check — TEMPORARILY DISABLED at the user's request so
+        // sessions can be opened at any time during testing. Re-enable by
+        // uncommenting the block below once the Business Calendar is configured
+        // and testing is complete.
         var calendar = await _db.BusinessCalendars.FirstOrDefaultAsync(c => c.AgenceID == agenceId);
-        var workingDays = (calendar?.WorkingDays ?? "1,2,3,4,5,6").Split(',').Select(int.Parse).ToHashSet();
-        var opening = calendar?.OpeningTime ?? new TimeSpan(8, 0, 0);
-        var closing = calendar?.ClosingTime ?? new TimeSpan(17, 0, 0);
-        var grace = calendar?.GracePeriodMinutes ?? 15;
-        var now = DateTime.Now; // local server time — business hours are inherently local, not UTC
-        var isoDay = (int)now.DayOfWeek == 0 ? 7 : (int)now.DayOfWeek; // Sunday=0 -> 7
-
-        if (!workingDays.Contains(isoDay) || now.TimeOfDay < opening || now.TimeOfDay > closing.Add(TimeSpan.FromMinutes(grace)))
-            return BadRequest(new { message = "Vous ne pouvez pas ouvrir une session de caisse en dehors des heures ouvrables officielles." });
+        // var workingDays = (calendar?.WorkingDays ?? "1,2,3,4,5,6").Split(',').Select(int.Parse).ToHashSet();
+        // var opening = calendar?.OpeningTime ?? new TimeSpan(8, 0, 0);
+        // var closing = calendar?.ClosingTime ?? new TimeSpan(17, 0, 0);
+        // var grace = calendar?.GracePeriodMinutes ?? 15;
+        // var now = DateTime.Now;
+        // var isoDay = (int)now.DayOfWeek == 0 ? 7 : (int)now.DayOfWeek;
+        // if (!workingDays.Contains(isoDay) || now.TimeOfDay < opening || now.TimeOfDay > closing.Add(TimeSpan.FromMinutes(grace)))
+        //     return BadRequest(new { message = "Vous ne pouvez pas ouvrir une session de caisse en dehors des heures ouvrables officielles." });
 
         var previousClosingCash = lastSession?.PhysicalCash ?? 0m;
         var count = await _db.CashSessions.CountAsync();
