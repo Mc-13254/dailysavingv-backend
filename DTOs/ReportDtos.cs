@@ -10,8 +10,7 @@ public record TransactionHistoryRowDto(
     string AccountID, string? ToAccountID, string ClientID, string ClientName,
     string? CollectorID, string? CollectorName, string AgenceNom,
     decimal Montant, decimal MontantCommission, string? PaymentMethod,
-    string Statut, DateTime DateTransaction,
-    int? FraudScore, string? FraudRiskLevel
+    string Statut, DateTime DateTransaction
 );
 
 public record TransactionHistoryDetailDto(

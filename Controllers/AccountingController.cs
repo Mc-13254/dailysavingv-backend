@@ -1,6 +1,8 @@
 using DailySavingV.API.Data;
 using DailySavingV.API.DTOs;
 using DailySavingV.API.Entities;
+using DailySavingV.API.Services;
+using DailySavingV.API.Services.Interfaces;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;

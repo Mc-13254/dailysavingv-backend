@@ -57,23 +57,19 @@ public class ReportsController : ControllerBase
         var collectors = await _db.Collectors.IgnoreQueryFilters().Where(c => collectorIds.Contains(c.CollectorID)).ToListAsync();
         var agencyIds = transactions.Select(t => t.AgenceID).Distinct().ToList();
         var agencies = await _db.Agences.IgnoreQueryFilters().Where(a => agencyIds.Contains(a.AgenceID)).ToListAsync();
-        var txIds = transactions.Select(t => t.TransactionID).ToList();
-        var fraudScores = await _db.FraudDetections.Where(f => txIds.Contains(f.TransactionID)).ToListAsync();
 
         var result = transactions.Select(t =>
         {
             var client = clients.FirstOrDefault(c => c.ClientID == t.ClientID);
             var collector = collectors.FirstOrDefault(c => c.CollectorID == t.CollectorID);
             var agence = agencies.FirstOrDefault(a => a.AgenceID == t.AgenceID);
-            var fraud = fraudScores.FirstOrDefault(f => f.TransactionID == t.TransactionID);
             return new TransactionHistoryRowDto(
                 t.TransactionID, t.ReceiptNumber, t.TransactionType.ToString(),
                 t.AccountID, t.ToAccountID, t.ClientID,
                 client != null ? $"{client.Nom} {client.Prenom}".Trim() : t.ClientID,
                 t.CollectorID, collector != null ? $"{collector.Name} {collector.Surname}".Trim() : null,
                 agence?.Nom ?? "—",
-                t.Montant, t.MontantCommission, t.PaymentMethod, t.Statut, t.DateTransaction,
-                fraud?.Score, fraud?.RiskLevel
+                t.Montant, t.MontantCommission, t.PaymentMethod, t.Statut, t.DateTransaction
             );
         });
 
@@ -996,55 +992,6 @@ public class ReportsController : ControllerBase
             all.Count > 0 ? all.Max(t => t.Montant) : 0,
             all.Count > 0 ? all.Min(t => t.Montant) : 0,
             all.Count(t => t.Statut == "PENDING"), all.Count(t => t.Statut is "REJECTED" or "CANCELLED")
-        ));
-    }
-
-    // ---- Executive Dashboard --------------------------------------------
-    // Composes existing report queries rather than recomputing new logic —
-    // for CEOs / Directors / Regional Managers / Board Members.
-
-    [HttpGet("executive")]
-    [Authorize(Policy = "SupervisorOrAdmin")]
-    public async Task<ActionResult<ExecutiveDashboardDto>> Executive()
-    {
-        var today = DateTime.UtcNow.Date;
-        var tx = await _db.Transactions.ToListAsync();
-        decimal SumOf(Entities.TransactionType type) => tx.Where(t => t.TransactionType == type).Sum(t => t.Montant);
-        var collections = SumOf(Entities.TransactionType.DAILY_COLLECTION);
-        var deposits = SumOf(Entities.TransactionType.DEPOSIT);
-        var withdrawals = SumOf(Entities.TransactionType.WITHDRAWAL);
-        var transfers = SumOf(Entities.TransactionType.TRANSFER);
-
-        var clients = await _db.Clients.CountAsync(c => c.ValidationStatus == "VALIDATED");
-        var collectors = await _db.Collectors.CountAsync(c => c.IsActive);
-        var agencies = await _db.Agences.IgnoreQueryFilters().ToListAsync();
-
-        var byAgency = tx.GroupBy(t => t.AgenceID).Select(g => new { AgenceID = g.Key, Total = g.Sum(t => t.Montant) }).OrderByDescending(x => x.Total).ToList();
-        var top = byAgency.FirstOrDefault();
-        var bottom = byAgency.LastOrDefault();
-
-        var loans = await _db.Loans.ToListAsync();
-        var vaultTotal = await _db.Vaults.SumAsync(v => v.Balance);
-
-        var pendingValidations =
-            await _db.ClientTmps.CountAsync(x => x.PendingStatus == Entities.Pending.PendingStatus.PENDING) +
-            await _db.CollectorTMPs.CountAsync(x => x.PendingStatus == Entities.Pending.PendingStatus.PENDING) +
-            await _db.ContractTmps.CountAsync(x => x.PendingStatus == Entities.Pending.PendingStatus.PENDING) +
-            await _db.AccountsTMPs.CountAsync(x => x.PendingStatus == Entities.Pending.PendingStatus.PENDING) +
-            await _db.LoanApplications.CountAsync(a => a.Status == "PENDING") +
-            await _db.CashMovements.CountAsync(m => m.Status == "PENDING");
-
-        return Ok(new ExecutiveDashboardDto(
-            collections + deposits, collections + deposits - withdrawals - transfers,
-            clients, collectors, agencies.Count,
-            loans.Where(l => l.Status == "ACTIVE").Sum(l => l.OutstandingPrincipal + l.OutstandingInterest),
-            loans.Count(l => l.Status == "ACTIVE"),
-            tx.Where(t => t.TransactionType == Entities.TransactionType.DAILY_COLLECTION && t.DateTransaction >= today).Sum(t => t.Montant),
-            tx.Sum(t => t.MontantCommission), vaultTotal,
-            top != null ? agencies.FirstOrDefault(a => a.AgenceID == top.AgenceID)?.Nom : null,
-            bottom != null ? agencies.FirstOrDefault(a => a.AgenceID == bottom.AgenceID)?.Nom : null,
-            pendingValidations,
-            await _db.CashSessions.CountAsync(s => s.Status == "OPEN")
         ));
     }
 }

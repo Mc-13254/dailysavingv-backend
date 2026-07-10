@@ -66,12 +66,3 @@ public record SystemHealthDto(
     string ApiStatus, string DatabaseStatus, DateTime ServerTimeUtc, TimeSpan Uptime,
     int ErrorsLast24h, int ActiveSessions
 );
-
-// ---- Executive Dashboard (composes existing report data, no duplication) ----
-
-public record ExecutiveDashboardDto(
-    decimal TotalRevenue, decimal NetCashFlow, int TotalClients, int TotalCollectors, int TotalAgencies,
-    decimal TotalLoansOutstanding, int ActiveLoans, decimal TotalCollectionsToday, decimal TotalCommission,
-    decimal VaultCashPosition, string? TopAgencyName, string? LowestAgencyName,
-    int PendingValidations, int OpenCashSessions
-);

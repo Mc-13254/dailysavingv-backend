@@ -17,16 +17,12 @@ public class TransactionService : ITransactionService
     private readonly AppDbContext _db;
     private readonly ICommissionService _commissionService;
     private readonly ICurrentUserService _currentUser;
-    private readonly IJournalPostingService _journal;
-    private readonly IFraudDetectionService _fraud;
 
-    public TransactionService(AppDbContext db, ICommissionService commissionService, ICurrentUserService currentUser, IJournalPostingService journal, IFraudDetectionService fraud)
+    public TransactionService(AppDbContext db, ICommissionService commissionService, ICurrentUserService currentUser)
     {
         _db = db;
         _commissionService = commissionService;
         _currentUser = currentUser;
-        _journal = journal;
-        _fraud = fraud;
     }
 
     /// <summary>
@@ -191,9 +187,6 @@ public class TransactionService : ITransactionService
         });
 
         await _db.SaveChangesAsync();
-
-        await _journal.PostTransactionAsync(transaction);
-        await _fraud.ScoreAndStoreAsync(transaction);
 
         string? collectorName = null;
         if (!string.IsNullOrWhiteSpace(request.CollectorID))
