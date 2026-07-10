@@ -153,6 +153,19 @@ public class CashSessionController : ControllerBase
             .FirstOrDefaultAsync(s => s.CodeUser == _currentUser.CodeUser && s.Status == "OPEN")
             ?? throw new InvalidOperationException("Aucune session de caisse ouverte à clôturer.");
 
+        // Business rule: the accounting engine must be internally consistent
+        // (Trial Balance debits == credits) before any cash session can close.
+        // In normal operation this can never actually be false — the journal
+        // posting service refuses to post an unbalanced entry — but this is a
+        // deliberate safety gate against data corruption or a future bug.
+        var allLines = await _db.JournalEntryLines.ToListAsync();
+        var totalDebit = allLines.Sum(l => l.Debit);
+        var totalCredit = allLines.Sum(l => l.Credit);
+        if (Math.Abs(totalDebit - totalCredit) > 0.01m)
+            throw new InvalidOperationException(
+                $"Clôture impossible : la comptabilité n'est pas équilibrée (Débit {totalDebit:N2} ≠ Crédit {totalCredit:N2}). " +
+                "Consultez Accounting Management > Trial Balance pour identifier l'écart avant de réessayer.");
+
         // Real banking end-of-day counting: if a bill/coin breakdown was provided,
         // it must add up to exactly the declared physical cash — no silent mismatch.
         if (request.PhysicalCashBreakdown is { Count: > 0 })

@@ -441,6 +441,8 @@ public class AppDbContext : DbContext
         modelBuilder.Entity<Accounts>().Property(x => x.DailyWithdrawalLimit).HasColumnType("decimal(18,2)");
         modelBuilder.Entity<Accounts>().Property(x => x.DailyTransactionLimit).HasColumnType("decimal(18,2)");
         modelBuilder.Entity<Accounts>().Property(x => x.OverdraftLimit).HasColumnType("decimal(18,2)");
+        modelBuilder.Entity<Accounts>().Property(x => x.AnnualInterestRate).HasColumnType("decimal(9,4)");
+        modelBuilder.Entity<Accounts>().Property(x => x.WithdrawalThreshold).HasColumnType("decimal(18,2)");
         modelBuilder.Entity<AccountsTMP>().Property(x => x.Balance).HasColumnType("decimal(18,2)");
         modelBuilder.Entity<AccountsTMP>().Property(x => x.OpeningBalance).HasColumnType("decimal(18,2)");
         modelBuilder.Entity<AccountsTMP>().Property(x => x.AvailableBalance).HasColumnType("decimal(18,2)");

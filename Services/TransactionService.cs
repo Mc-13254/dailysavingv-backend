@@ -91,6 +91,8 @@ public class TransactionService : ITransactionService
                 throw new InvalidOperationException("Solde insuffisant.");
             if (account.MinimumBalance.HasValue && account.Balance - request.Montant < account.MinimumBalance.Value)
                 throw new InvalidOperationException("Cette opération ferait descendre le compte sous son solde minimum autorisé.");
+            if (account.AccountType == "MEMBER_GL" && account.WithdrawalThreshold.HasValue && account.Balance < account.WithdrawalThreshold.Value)
+                throw new InvalidOperationException($"Retrait impossible sur un compte membre (GL) tant que le solde n'atteint pas {account.WithdrawalThreshold.Value:N0}.");
         }
 
         var openingBalance = account.Balance;

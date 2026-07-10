@@ -184,6 +184,14 @@ public class Accounts
     public decimal? OverdraftLimit { get; set; }
 
     public string Status { get; set; } = "PENDING"; // PENDING/ACTIVE/FROZEN/CLOSED/DORMANT
+
+    // Member/GL account fields — only meaningful when AccountType == "MEMBER_GL".
+    // Auto-created alongside a client's first regular savings account: joining
+    // the microfinance as a member/investor, earning annual interest on their
+    // GL balance, with withdrawals gated behind a minimum threshold.
+    public decimal? AnnualInterestRate { get; set; }   // e.g. 3 = 3%/year
+    public decimal? WithdrawalThreshold { get; set; }  // e.g. 800000 — balance must be at least this to withdraw at all
+    public DateTime? LastInterestAppliedDate { get; set; }
     public string? FreezeReason { get; set; }
     public string? CloseReason { get; set; }
     public DateTime? ClosingDate { get; set; }

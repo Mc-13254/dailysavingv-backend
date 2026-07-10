@@ -32,6 +32,15 @@ public class LoanApplication
     public int RequestedTermMonths { get; set; }
     public string? Purpose { get; set; }
 
+    // Guarantor — standard banking due-diligence requirement
+    public string? GuarantorName { get; set; }
+    public string? GuarantorPhone { get; set; }
+    public string? GuarantorAddress { get; set; }
+    public string? GuarantorIDNumber { get; set; }
+    public string? GuarantorPhotoUrl { get; set; }
+    public string? GuarantorSignatureUrl { get; set; }
+    public string? CollateralDescription { get; set; }
+
     public decimal? ApprovedAmount { get; set; }
     public int? ApprovedTermMonths { get; set; }
 

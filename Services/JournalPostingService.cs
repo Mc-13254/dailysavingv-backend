@@ -12,6 +12,7 @@ public interface IJournalPostingService
     Task PostLoanWriteOffAsync(Loan loan);
     Task PostCashVarianceAsync(int agenceId, int cashSessionId, decimal variance, string reference);
     Task PostVaultTillMovementAsync(int agenceId, string movementType, decimal amount, string reference);
+    Task PostMemberInterestAsync(int agenceId, string accountId, decimal amount, string reference);
     Task<int> PostManualEntryAsync(string entryType, string description, int agenceId, string postedBy, List<(int glAccountId, decimal debit, decimal credit, string? lineDesc)> lines, string? sourceReference = null);
     Task<int> ReverseEntryAsync(int originalJournalEntryId, string postedBy);
 }
@@ -219,6 +220,20 @@ public class JournalPostingService : IJournalPostingService
             : new List<(int, decimal, decimal, string?)> { (vault, amount, 0, "Retour reçu"), (till, 0, amount, "Retour envoyé") };
 
         await PostAsync("CASH_MOVEMENT", reference, agenceId, $"Mouvement de caisse {movementType} — {reference}", "SYSTEM", lines);
+    }
+
+    public async Task PostMemberInterestAsync(int agenceId, string accountId, decimal amount, string reference)
+    {
+        if (amount <= 0) return;
+        var interestExpense = await GLAsync("5040");
+        var deposits = await GLAsync("2010");
+
+        await PostAsync("MEMBER_INTEREST", reference, agenceId, $"Intérêt annuel versé au compte membre {accountId}", "SYSTEM",
+            new List<(int, decimal, decimal, string?)>
+            {
+                (interestExpense, amount, 0, "Intérêt versé au membre"),
+                (deposits, 0, amount, "Crédit compte membre"),
+            });
     }
 
     public async Task<int> PostManualEntryAsync(string entryType, string description, int agenceId, string postedBy, List<(int glAccountId, decimal debit, decimal credit, string? lineDesc)> lines, string? sourceReference = null) =>

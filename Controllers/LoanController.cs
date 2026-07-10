@@ -18,13 +18,15 @@ public class LoanController : ControllerBase
     private readonly ICurrentUserService _currentUser;
     private readonly Services.INotificationService _notifications;
     private readonly Services.IJournalPostingService _journal;
+    private readonly IWebHostEnvironment _env;
 
-    public LoanController(AppDbContext db, ICurrentUserService currentUser, Services.INotificationService notifications, Services.IJournalPostingService journal)
+    public LoanController(AppDbContext db, ICurrentUserService currentUser, Services.INotificationService notifications, Services.IJournalPostingService journal, IWebHostEnvironment env)
     {
         _db = db;
         _currentUser = currentUser;
         _notifications = notifications;
         _journal = journal;
+        _env = env;
     }
 
     // ---- Loan Products (simplified: direct admin config, no Maker-Checker) ----
@@ -107,6 +109,13 @@ public class LoanController : ControllerBase
             RequestedAmount = request.RequestedAmount,
             RequestedTermMonths = request.RequestedTermMonths,
             Purpose = request.Purpose,
+            GuarantorName = request.GuarantorName,
+            GuarantorPhone = request.GuarantorPhone,
+            GuarantorAddress = request.GuarantorAddress,
+            GuarantorIDNumber = request.GuarantorIDNumber,
+            GuarantorPhotoUrl = request.GuarantorPhotoUrl,
+            GuarantorSignatureUrl = request.GuarantorSignatureUrl,
+            CollateralDescription = request.CollateralDescription,
             RequestedBy = _currentUser.CodeUser!
         };
         _db.LoanApplications.Add(app);
@@ -121,7 +130,63 @@ public class LoanController : ControllerBase
         return Ok(new { message = "Demande de prêt soumise pour approbation.", loanApplicationId = app.LoanApplicationID });
     }
 
-    [HttpPost("applications/{id:int}/approve")]
+    [HttpGet("client-assessment/{clientId}")]
+    public async Task<ActionResult<ClientAssessmentDto>> ClientAssessment(string clientId)
+    {
+        var client = await _db.Clients.FirstOrDefaultAsync(c => c.ClientID == clientId)
+            ?? throw new KeyNotFoundException("Client introuvable.");
+
+        var tx = await _db.Transactions.IgnoreQueryFilters()
+            .Where(t => t.ClientID == clientId && t.TransactionType == Entities.TransactionType.DAILY_COLLECTION)
+            .ToListAsync();
+        var daysAsClient = Math.Max(1, (DateTime.UtcNow - client.CreatedDate).Days);
+        var totalCollected = tx.Sum(t => t.Montant);
+        var avgMonthly = totalCollected / (daysAsClient / 30.0m == 0 ? 1 : daysAsClient / 30.0m);
+
+        var priorLoans = await _db.Loans.Where(l => l.ClientID == clientId).ToListAsync();
+        var priorLoanIds = priorLoans.Select(l => l.LoanID).ToList();
+        var overdueInstallments = await _db.LoanInstallments
+            .CountAsync(i => priorLoanIds.Contains(i.LoanID) && i.Status != "PAID" && i.DueDate < DateTime.UtcNow);
+
+        var notes = new List<string>();
+        if (client.IsBlacklisted) notes.Add("Client sur liste noire.");
+        if (priorLoans.Any(l => l.Status == "WRITTEN_OFF")) notes.Add("A un prêt passé en perte (write-off) dans son historique.");
+        if (overdueInstallments > 0) notes.Add($"{overdueInstallments} échéance(s) en retard sur ses prêts.");
+        if (daysAsClient < 90) notes.Add("Client depuis moins de 90 jours — historique limité.");
+        if (tx.Count == 0) notes.Add("Aucune collecte enregistrée à ce jour.");
+        if (notes.Count == 0) notes.Add("Historique de collecte régulier, aucun incident détecté.");
+
+        var verdict = client.IsBlacklisted || priorLoans.Any(l => l.Status == "WRITTEN_OFF")
+            ? "À examiner attentivement"
+            : overdueInstallments > 0 || daysAsClient < 90 || tx.Count < 5
+                ? "Profil moyen — vérifier avant approbation"
+                : "Bon profil";
+
+        return Ok(new ClientAssessmentDto(
+            clientId, client.CreatedDate, daysAsClient,
+            tx.Count, totalCollected, avgMonthly,
+            priorLoans.Count, priorLoans.Count(l => l.Status == "CLOSED"), priorLoans.Count(l => l.Status == "WRITTEN_OFF"), overdueInstallments,
+            client.IsBlacklisted, client.RiskLevel, verdict, notes
+        ));
+    }
+
+    [HttpPost("applications/upload")]
+    public async Task<ActionResult<string>> UploadGuarantorFile(IFormFile file)
+    {
+        if (file == null || file.Length == 0) throw new InvalidOperationException("Aucun fichier fourni.");
+        var ext = Path.GetExtension(file.FileName).ToLowerInvariant();
+        if (ext is not (".png" or ".jpg" or ".jpeg")) throw new InvalidOperationException("Seules les images (PNG/JPG) sont acceptées.");
+
+        var dir = Path.Combine(_env.WebRootPath ?? Path.Combine(Directory.GetCurrentDirectory(), "wwwroot"), "uploads", "loans");
+        Directory.CreateDirectory(dir);
+        var storedName = $"{Guid.NewGuid():N}{ext}";
+        using (var stream = new FileStream(Path.Combine(dir, storedName), FileMode.Create))
+        {
+            await file.CopyToAsync(stream);
+        }
+
+        return Ok(new { url = $"/uploads/loans/{storedName}" });
+    }
     [Authorize(Policy = "SupervisorOrAdmin")]
     public async Task<ActionResult> ApproveApplication(int id, ApproveLoanApplicationRequest request)
     {

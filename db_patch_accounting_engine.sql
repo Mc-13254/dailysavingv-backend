@@ -24,8 +24,13 @@ BEGIN
     ('4020', 'Revenus de commissions',             'REVENUE',   'CREDIT', 0),
     ('4030', 'Revenus de pénalités',                'REVENUE',   'CREDIT', 0),
     ('5010', 'Pertes sur prêts (Write-off)',        'EXPENSE',   'DEBIT',  0),
-    ('5030', 'Écarts de caisse (Cash Over/Short)',  'EXPENSE',   'DEBIT',  1);
+    ('5030', 'Écarts de caisse (Cash Over/Short)',  'EXPENSE',   'DEBIT',  1),
+    ('5040', 'Intérêts versés aux membres (GL)',     'EXPENSE',   'DEBIT',  0);
 END
+GO
+
+IF NOT EXISTS (SELECT 1 FROM GLAccount WHERE Code = '5040')
+    INSERT INTO GLAccount (Code, Name, Type, NormalBalance, IsCashAccount) VALUES ('5040', 'Intérêts versés aux membres (GL)', 'EXPENSE', 'DEBIT', 0);
 GO
 
 -- If this patch runs on a database that already seeded the accounts WITHOUT

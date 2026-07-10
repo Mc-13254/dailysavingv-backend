@@ -19,11 +19,13 @@ public class AccountsController : ControllerBase
 {
     private readonly AppDbContext _db;
     private readonly ICurrentUserService _currentUser;
+    private readonly Services.IJournalPostingService _journal;
 
-    public AccountsController(AppDbContext db, ICurrentUserService currentUser)
+    public AccountsController(AppDbContext db, ICurrentUserService currentUser, Services.IJournalPostingService journal)
     {
         _db = db;
         _currentUser = currentUser;
+        _journal = journal;
     }
 
     // Auto agency-scoped via the Accounts global query filter in AppDbContext
@@ -270,6 +272,7 @@ public class AccountsController : ControllerBase
         {
             var count = await _db.Accounts.IgnoreQueryFilters().CountAsync();
             var newId = $"CC-{(count + 1):D6}";
+            var isFirstAccountForClient = !await _db.Accounts.IgnoreQueryFilters().AnyAsync(a => a.ClientID == draft.ClientID);
 
             _db.Accounts.Add(new Accounts
             {
@@ -296,6 +299,34 @@ public class AccountsController : ControllerBase
                 AgenceID = draft.AgenceID!.Value,
                 CreatedBy = draft.RequestUser
             });
+
+            // Business rule: opening a client's FIRST account also makes them a
+            // member/investor of the microfinance via a companion GL account —
+            // minimum 30,000 first deposit, 3%/year, withdrawals gated above 800,000.
+            if (isFirstAccountForClient)
+            {
+                var glCount = await _db.Accounts.IgnoreQueryFilters().CountAsync(a => a.AccountType == "MEMBER_GL");
+                _db.Accounts.Add(new Accounts
+                {
+                    AccountID = $"GL-{(glCount + 1):D6}",
+                    ClientID = draft.ClientID!,
+                    ContractID = draft.ContractID,
+                    CollectorID = draft.CollectorID,
+                    AccountType = "MEMBER_GL",
+                    Currency = draft.Currency ?? "XAF",
+                    OpeningBalance = 0,
+                    Balance = 0,
+                    AvailableBalance = 0,
+                    BlockedBalance = 0,
+                    MinimumBalance = 30000,
+                    AnnualInterestRate = 3,
+                    WithdrawalThreshold = 800000,
+                    Status = "ACTIVE",
+                    Active = true,
+                    AgenceID = draft.AgenceID!.Value,
+                    CreatedBy = draft.RequestUser
+                });
+            }
         }
         else if (draft.ActionType == PendingActionType.UPDATE && draft.TargetAccountID != null)
         {
@@ -343,5 +374,31 @@ public class AccountsController : ControllerBase
 
         await _db.SaveChangesAsync();
         return Ok(new { message = "Compte rejeté." });
+    }
+
+    // Manual trigger — no background scheduler exists yet, so an authorized
+    // user applies the annual 3% member interest once a year (or on demand).
+    [HttpPost("{id}/apply-annual-interest")]
+    [Authorize(Policy = "AdminOnly")]
+    public async Task<ActionResult> ApplyAnnualInterest(string id)
+    {
+        var account = await _db.Accounts.FirstOrDefaultAsync(a => a.AccountID == id)
+            ?? throw new KeyNotFoundException("Compte introuvable.");
+        if (account.AccountType != "MEMBER_GL")
+            throw new InvalidOperationException("L'intérêt annuel ne s'applique qu'aux comptes membres (GL).");
+        if (!account.AnnualInterestRate.HasValue || account.AnnualInterestRate.Value <= 0)
+            throw new InvalidOperationException("Aucun taux d'intérêt configuré sur ce compte.");
+
+        var interest = Math.Round(account.Balance * account.AnnualInterestRate.Value / 100m, 2);
+        if (interest <= 0) return Ok(new { message = "Aucun intérêt à appliquer (solde nul).", interest = 0m });
+
+        account.Balance += interest;
+        account.AvailableBalance += interest;
+        account.LastInterestAppliedDate = DateTime.UtcNow;
+        await _db.SaveChangesAsync();
+
+        await _journal.PostMemberInterestAsync(account.AgenceID, account.AccountID, interest, $"{account.AccountID}-{DateTime.UtcNow:yyyy}");
+
+        return Ok(new { message = $"Intérêt annuel de {interest:N0} appliqué.", interest });
     }
 }

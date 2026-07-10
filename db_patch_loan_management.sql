@@ -123,3 +123,20 @@ BEGIN
     CREATE INDEX IX_LoanRepayment_LoanID ON LoanRepayment(LoanID);
 END
 GO
+
+-- Guarantor / collateral fields (added after initial Loan Management release).
+IF COL_LENGTH('LoanApplication', 'GuarantorName') IS NULL
+    ALTER TABLE LoanApplication ADD GuarantorName NVARCHAR(150) NULL;
+IF COL_LENGTH('LoanApplication', 'GuarantorPhone') IS NULL
+    ALTER TABLE LoanApplication ADD GuarantorPhone NVARCHAR(30) NULL;
+IF COL_LENGTH('LoanApplication', 'GuarantorAddress') IS NULL
+    ALTER TABLE LoanApplication ADD GuarantorAddress NVARCHAR(300) NULL;
+IF COL_LENGTH('LoanApplication', 'GuarantorIDNumber') IS NULL
+    ALTER TABLE LoanApplication ADD GuarantorIDNumber NVARCHAR(50) NULL;
+IF COL_LENGTH('LoanApplication', 'GuarantorPhotoUrl') IS NULL
+    ALTER TABLE LoanApplication ADD GuarantorPhotoUrl NVARCHAR(300) NULL;
+IF COL_LENGTH('LoanApplication', 'GuarantorSignatureUrl') IS NULL
+    ALTER TABLE LoanApplication ADD GuarantorSignatureUrl NVARCHAR(300) NULL;
+IF COL_LENGTH('LoanApplication', 'CollateralDescription') IS NULL
+    ALTER TABLE LoanApplication ADD CollateralDescription NVARCHAR(300) NULL;
+GO
