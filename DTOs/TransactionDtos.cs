@@ -54,3 +54,4 @@ public record ImportBatchRowDto(
     string Status, string? ErrorMessage, string? RefRowLabel
 );
 public record ImportBatchDto(int BatchID, string FileName, string UploadedBy, DateTime UploadedDate, int TotalRows, string Status, List<ImportBatchRowDto> Rows);
+

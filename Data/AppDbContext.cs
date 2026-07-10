@@ -85,6 +85,8 @@ public class AppDbContext : DbContext
     public DbSet<ManualJournalEntryDraft> ManualJournalEntryDrafts => Set<ManualJournalEntryDraft>();
     public DbSet<AccountingActivityLog> AccountingActivityLogs => Set<AccountingActivityLog>();
     public DbSet<FraudDetection> FraudDetections => Set<FraudDetection>();
+    public DbSet<TransactionReversalRequest> TransactionReversalRequests => Set<TransactionReversalRequest>();
+    public DbSet<TransactionReversalRequest> TransactionReversalRequests => Set<TransactionReversalRequest>();
     public DbSet<HistTransactions> HistTransactions => Set<HistTransactions>();
     public DbSet<BusinessCalendar> BusinessCalendars => Set<BusinessCalendar>();
     public DbSet<CashSession> CashSessions => Set<CashSession>();
@@ -557,6 +559,14 @@ public class AppDbContext : DbContext
         modelBuilder.Entity<FraudDetection>().ToTable("FraudDetection");
         modelBuilder.Entity<FraudDetection>().HasIndex(x => x.TransactionID);
         modelBuilder.Entity<FraudDetection>().HasOne<Transactions>().WithMany().HasForeignKey(x => x.TransactionID).OnDelete(DeleteBehavior.Restrict);
+
+        modelBuilder.Entity<TransactionReversalRequest>().ToTable("TransactionReversalRequest");
+        modelBuilder.Entity<TransactionReversalRequest>()
+            .HasOne(x => x.Transaction).WithMany()
+            .HasForeignKey(x => x.TransactionID)
+            .OnDelete(DeleteBehavior.Restrict);
+        modelBuilder.Entity<TransactionReversalRequest>().ToTable("TransactionReversalRequest");
+        modelBuilder.Entity<TransactionReversalRequest>().HasOne<Transactions>().WithMany().HasForeignKey(x => x.TransactionID).OnDelete(DeleteBehavior.Restrict);
 
         modelBuilder.Entity<Vault>().Property(x => x.Balance).HasColumnType("decimal(18,2)");
         modelBuilder.Entity<Vault>().Property(x => x.MinimumBalance).HasColumnType("decimal(18,2)");

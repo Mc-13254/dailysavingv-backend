@@ -109,7 +109,11 @@ builder.Services.AddCors(options =>
 var app = builder.Build();
 
 // Logs every unhandled exception to ErrorLogs (Security > Error Logs / System
-// Health), then rethrows so existing error responses are unaffected.
+// Health) AND converts common business-rule exceptions into a proper JSON
+// {message} response — without this, every `throw new
+// InvalidOperationException(...)` used throughout the controllers (the
+// primary way business-rule violations are reported) surfaced as a bare,
+// message-less 500 to the frontend.
 app.Use(async (context, next) =>
 {
     try
@@ -138,7 +142,22 @@ app.Use(async (context, next) =>
         {
             // Never let logging failures mask the original exception.
         }
-        throw;
+
+        if (context.Response.HasStarted) throw;
+
+        var (status, message) = ex switch
+        {
+            InvalidOperationException => (400, ex.Message),
+            KeyNotFoundException => (404, ex.Message),
+            UnauthorizedAccessException => (401, ex.Message),
+            ArgumentException => (400, ex.Message),
+            _ => (500, "Une erreur interne est survenue. L'équipe technique a été notifiée.")
+        };
+
+        context.Response.Clear();
+        context.Response.StatusCode = status;
+        context.Response.ContentType = "application/json";
+        await context.Response.WriteAsJsonAsync(new { message });
     }
 });
 

@@ -12,7 +12,8 @@ public record LoginResponse(
     string AccessToken,
     string RefreshToken,
     DateTime AccessTokenExpiresAt,
-    bool MustChangePassword
+    bool MustChangePassword,
+    string? PhotoUrl
 );
 
 public record RefreshRequest(string RefreshToken);

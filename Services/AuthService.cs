@@ -124,7 +124,7 @@ public class AuthService : IAuthService
 
         return new LoginResponse(
             user.CodeUser, user.Username, user.Role!.Code, user.AgenceID, user.Agence?.Nom, user.Agence?.CodeAgence,
-            accessToken, refreshToken, expiresAt, user.MustChangePassword
+            accessToken, refreshToken, expiresAt, user.MustChangePassword, user.Photo
         );
     }
 
@@ -162,7 +162,7 @@ public class AuthService : IAuthService
 
         return new LoginResponse(
             user.CodeUser, user.Username, user.Role!.Code, user.AgenceID, user.Agence?.Nom, user.Agence?.CodeAgence,
-            accessToken, newRefreshToken, expiresAt, user.MustChangePassword
+            accessToken, newRefreshToken, expiresAt, user.MustChangePassword, user.Photo
         );
     }
 

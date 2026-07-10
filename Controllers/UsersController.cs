@@ -18,11 +18,13 @@ public class UsersController : ControllerBase
 {
     private readonly AppDbContext _db;
     private readonly ICurrentUserService _currentUser;
+    private readonly Services.NumberingService _numbering;
 
-    public UsersController(AppDbContext db, ICurrentUserService currentUser)
+    public UsersController(AppDbContext db, ICurrentUserService currentUser, Services.NumberingService numbering)
     {
         _db = db;
         _currentUser = currentUser;
+        _numbering = numbering;
     }
 
     private static UserFullDto ToDto(Entities.Users u) => new(
@@ -221,8 +223,18 @@ public class UsersController : ControllerBase
             if (usernameTaken)
                 return BadRequest(new { message = "Ce nom d'utilisateur existe déjà — impossible de valider." });
 
-            var count = await _db.Users.IgnoreQueryFilters().CountAsync();
-            var newId = $"U-{(count + 1):D3}";
+            string newId;
+            try
+            {
+                newId = await _numbering.GenerateNextAsync("User");
+            }
+            catch (InvalidOperationException)
+            {
+                // No active numbering rule configured for "User" yet — fall back
+                // to the old scheme rather than blocking user creation entirely.
+                var count = await _db.Users.IgnoreQueryFilters().CountAsync();
+                newId = $"U-{(count + 1):D3}";
+            }
 
             _db.Users.Add(new Entities.Users
             {
