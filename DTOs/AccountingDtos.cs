@@ -6,7 +6,7 @@ public record TrialBalanceRowDto(string Code, string Name, string Type, decimal 
 public record TrialBalanceDto(List<TrialBalanceRowDto> Rows, decimal TotalDebit, decimal TotalCredit, bool IsBalanced);
 
 public record GeneralLedgerLineDto(
-    DateTime EntryDate, string EntryNumber, string Description, string SourceType, string? SourceReference,
+    int JournalEntryID, DateTime EntryDate, string EntryNumber, string Description, string SourceType, string? SourceReference,
     decimal Debit, decimal Credit, decimal RunningBalance
 );
 public record GeneralLedgerDto(string AccountCode, string AccountName, decimal OpeningBalance, List<GeneralLedgerLineDto> Lines, decimal ClosingBalance);

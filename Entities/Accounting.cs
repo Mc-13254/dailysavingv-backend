@@ -49,3 +49,52 @@ public class JournalEntryLine
     public decimal Credit { get; set; }
     public string? Description { get; set; }
 }
+
+/// <summary>Monthly fiscal period lock. Closing a period blocks new manual
+/// entries dated inside it — automatic postings are always "today" so a
+/// closed past period is naturally protected from them too.</summary>
+public class AccountingPeriod
+{
+    public int AccountingPeriodID { get; set; }
+    public int Year { get; set; }
+    public int Month { get; set; }
+    public bool IsClosed { get; set; }
+    public string? ClosedBy { get; set; }
+    public DateTime? ClosedDate { get; set; }
+}
+
+/// <summary>
+/// Manual journal entries and reversals never post directly — they sit here
+/// as a draft awaiting a second, different, authorized user's approval
+/// (Maker-Checker), then a balanced JournalEntry is created from ApprovedBy.
+/// </summary>
+public class ManualJournalEntryDraft
+{
+    public int ManualJournalEntryDraftID { get; set; }
+    public string EntryType { get; set; } = "MANUAL"; // MANUAL / REVERSAL / ADJUSTMENT
+    public string Description { get; set; } = null!;
+    public int? ReversalOfJournalEntryID { get; set; }
+    public int AgenceID { get; set; }
+    public string LinesJson { get; set; } = null!; // [{glAccountId, debit, credit, description}]
+    public string Status { get; set; } = "PENDING"; // PENDING / APPROVED / REJECTED
+    public string RequestedBy { get; set; } = null!;
+    public DateTime RequestDate { get; set; } = DateTime.UtcNow;
+    public string? ApprovedBy { get; set; }
+    public DateTime? ApprovalDate { get; set; }
+    public string? RejectionReason { get; set; }
+    public int? PostedJournalEntryID { get; set; }
+}
+
+/// <summary>Records every view/generate/export/print/close/post action on the
+/// Accounting module specifically — narrower than a system-wide Activity Log,
+/// but real and queryable, matching the "every action is recorded" requirement
+/// for this module.</summary>
+public class AccountingActivityLog
+{
+    public int AccountingActivityLogID { get; set; }
+    public string CodeUser { get; set; } = null!;
+    public string Action { get; set; } = null!; // VIEW / EXPORT / PRINT / CLOSE_PERIOD / REOPEN_PERIOD / POST_MANUAL_ENTRY / REVERSE_ENTRY
+    public string? ReportType { get; set; }
+    public string? Details { get; set; }
+    public DateTime ActionDate { get; set; } = DateTime.UtcNow;
+}

@@ -15,14 +15,45 @@ namespace DailySavingV.API.Controllers;
 /// </summary>
 [ApiController]
 [Route("api/accounting")]
-[Authorize(Policy = "SupervisorOrAdmin")]
+[Authorize(Policy = "AccountingView")]
 public class AccountingController : ControllerBase
 {
     private readonly AppDbContext _db;
+    private readonly ICurrentUserService _currentUser;
+    private readonly IJournalPostingService _journal;
 
-    public AccountingController(AppDbContext db)
+    public AccountingController(AppDbContext db, ICurrentUserService currentUser, IJournalPostingService journal)
     {
         _db = db;
+        _currentUser = currentUser;
+        _journal = journal;
+    }
+
+    private async Task LogAsync(string action, string? reportType = null, string? details = null)
+    {
+        _db.AccountingActivityLogs.Add(new AccountingActivityLog
+        {
+            CodeUser = _currentUser.CodeUser ?? "UNKNOWN", Action = action, ReportType = reportType, Details = details
+        });
+        await _db.SaveChangesAsync();
+    }
+
+    [HttpPost("log-action")]
+    public async Task<ActionResult> LogAction([FromQuery] string action, [FromQuery] string? reportType)
+    {
+        await LogAsync(action, reportType, null);
+        return Ok();
+    }
+
+    [HttpGet("activity-log")]
+    [Authorize(Policy = "AccountingAdmin")]
+    public async Task<ActionResult> ActivityLog([FromQuery] DateTime? from, [FromQuery] DateTime? to)
+    {
+        var query = _db.AccountingActivityLogs.AsQueryable();
+        if (from.HasValue) query = query.Where(l => l.ActionDate >= from.Value);
+        if (to.HasValue) query = query.Where(l => l.ActionDate <= to.Value.AddDays(1).AddTicks(-1));
+        var logs = await query.OrderByDescending(l => l.ActionDate).Take(300).ToListAsync();
+        return Ok(logs.Select(l => new { l.AccountingActivityLogID, l.CodeUser, l.Action, l.ReportType, l.Details, l.ActionDate }));
     }
 
     [HttpGet("chart-of-accounts")]
@@ -60,6 +91,7 @@ public class AccountingController : ControllerBase
     [HttpGet("trial-balance")]
     public async Task<ActionResult<TrialBalanceDto>> TrialBalance([FromQuery] DateTime? from, [FromQuery] DateTime? to)
     {
+        await LogAsync("VIEW", "TrialBalance");
         var rows = await ComputeBalancesAsync(from, to);
         var totalDebit = rows.Sum(r => r.TotalDebit);
         var totalCredit = rows.Sum(r => r.TotalCredit);
@@ -71,6 +103,7 @@ public class AccountingController : ControllerBase
     [HttpGet("general-ledger/{glAccountId:int}")]
     public async Task<ActionResult<GeneralLedgerDto>> GeneralLedger(int glAccountId, [FromQuery] DateTime? from, [FromQuery] DateTime? to)
     {
+        await LogAsync("VIEW", "GeneralLedger", $"GLAccountID={glAccountId}");
         var account = await _db.GLAccounts.FirstOrDefaultAsync(a => a.GLAccountID == glAccountId)
             ?? throw new KeyNotFoundException("Compte comptable introuvable.");
 
@@ -95,7 +128,7 @@ public class AccountingController : ControllerBase
         {
             running += account.NormalBalance == "DEBIT" ? (line.Debit - line.Credit) : (line.Credit - line.Debit);
             result.Add(new GeneralLedgerLineDto(
-                line.JournalEntry!.EntryDate, line.JournalEntry.EntryNumber, line.JournalEntry.Description,
+                line.JournalEntryID, line.JournalEntry!.EntryDate, line.JournalEntry.EntryNumber, line.JournalEntry.Description,
                 line.JournalEntry.SourceType, line.JournalEntry.SourceReference, line.Debit, line.Credit, running
             ));
         }
@@ -108,6 +141,7 @@ public class AccountingController : ControllerBase
     [HttpGet("balance-sheet")]
     public async Task<ActionResult<BalanceSheetDto>> BalanceSheet([FromQuery] DateTime? asOf)
     {
+        await LogAsync("VIEW", "BalanceSheet");
         var cutoff = asOf ?? DateTime.UtcNow;
         var assetRows = await ComputeBalancesAsync(null, cutoff, new[] { GLAccountType.ASSET });
         var liabilityRows = await ComputeBalancesAsync(null, cutoff, new[] { GLAccountType.LIABILITY });
@@ -138,6 +172,7 @@ public class AccountingController : ControllerBase
     [HttpGet("profit-loss")]
     public async Task<ActionResult<ProfitAndLossDto>> ProfitAndLoss([FromQuery] DateTime? from, [FromQuery] DateTime? to)
     {
+        await LogAsync("VIEW", "ProfitAndLoss");
         var start = from ?? new DateTime(DateTime.UtcNow.Year, 1, 1);
         var end = to ?? DateTime.UtcNow;
 
@@ -154,6 +189,7 @@ public class AccountingController : ControllerBase
     [HttpGet("cash-book")]
     public async Task<ActionResult<CashBookDto>> CashBook([FromQuery] DateTime? from, [FromQuery] DateTime? to)
     {
+        await LogAsync("VIEW", "CashBook");
         var cashAccountIds = await _db.GLAccounts.Where(a => a.IsCashAccount).Select(a => a.GLAccountID).ToListAsync();
 
         var allLines = await _db.JournalEntryLines.Include(l => l.JournalEntry)
@@ -185,6 +221,7 @@ public class AccountingController : ControllerBase
     [HttpGet("cash-flow")]
     public async Task<ActionResult<CashFlowDto>> CashFlow([FromQuery] DateTime? from, [FromQuery] DateTime? to)
     {
+        await LogAsync("VIEW", "CashFlow");
         var start = from ?? new DateTime(DateTime.UtcNow.Year, DateTime.UtcNow.Month, 1);
         var end = to ?? DateTime.UtcNow;
 
@@ -211,5 +248,162 @@ public class AccountingController : ControllerBase
         var netChange = cfLines.Sum(l => l.Amount);
 
         return Ok(new CashFlowDto(start, end, openingCash, cfLines, netChange, openingCash + netChange));
+    }
+
+    // ---- Fiscal Period Closing ---------------------------------------------
+
+    [HttpGet("periods")]
+    [Authorize(Policy = "AccountingAdmin")]
+    public async Task<ActionResult> Periods()
+    {
+        var periods = await _db.AccountingPeriods.OrderByDescending(p => p.Year).ThenByDescending(p => p.Month).ToListAsync();
+        return Ok(periods.Select(p => new { p.AccountingPeriodID, p.Year, p.Month, p.IsClosed, p.ClosedBy, p.ClosedDate }));
+    }
+
+    [HttpPost("periods/{year:int}/{month:int}/close")]
+    [Authorize(Policy = "AccountingAdmin")]
+    public async Task<ActionResult> ClosePeriod(int year, int month)
+    {
+        var period = await _db.AccountingPeriods.FirstOrDefaultAsync(p => p.Year == year && p.Month == month);
+        if (period == null)
+        {
+            period = new AccountingPeriod { Year = year, Month = month };
+            _db.AccountingPeriods.Add(period);
+        }
+        if (period.IsClosed) throw new InvalidOperationException("Cette période est déjà clôturée.");
+
+        period.IsClosed = true;
+        period.ClosedBy = _currentUser.CodeUser;
+        period.ClosedDate = DateTime.UtcNow;
+        await _db.SaveChangesAsync();
+        await LogAsync("CLOSE_PERIOD", null, $"{year}-{month:D2}");
+
+        return Ok(new { message = $"Période {year}-{month:D2} clôturée. Aucune écriture manuelle ne pourra y être ajoutée." });
+    }
+
+    [HttpPost("periods/{year:int}/{month:int}/reopen")]
+    [Authorize(Policy = "AdminOnly")]
+    public async Task<ActionResult> ReopenPeriod(int year, int month)
+    {
+        var period = await _db.AccountingPeriods.FirstOrDefaultAsync(p => p.Year == year && p.Month == month)
+            ?? throw new KeyNotFoundException("Période introuvable.");
+
+        period.IsClosed = false;
+        period.ClosedBy = null;
+        period.ClosedDate = null;
+        await _db.SaveChangesAsync();
+        await LogAsync("REOPEN_PERIOD", null, $"{year}-{month:D2}");
+
+        return Ok(new { message = $"Période {year}-{month:D2} rouverte." });
+    }
+
+    private async Task EnsurePeriodOpenAsync(DateTime date)
+    {
+        var closed = await _db.AccountingPeriods.AnyAsync(p => p.Year == date.Year && p.Month == date.Month && p.IsClosed);
+        if (closed) throw new InvalidOperationException($"La période {date:yyyy-MM} est clôturée — aucune écriture ne peut y être ajoutée.");
+    }
+
+    // ---- Manual Journal Entries & Reversals (Maker-Checker) ----------------
+
+    public record ManualEntryLineInput(int GLAccountID, decimal Debit, decimal Credit, string? Description);
+    public record CreateManualEntryRequest(string EntryType, string Description, List<ManualEntryLineInput> Lines);
+
+    [HttpGet("manual-entries")]
+    [Authorize(Policy = "AccountingAdmin")]
+    public async Task<ActionResult> ManualEntries([FromQuery] string? status)
+    {
+        var query = _db.ManualJournalEntryDrafts.AsQueryable();
+        if (!string.IsNullOrWhiteSpace(status)) query = query.Where(d => d.Status == status);
+        var drafts = await query.OrderByDescending(d => d.RequestDate).Take(200).ToListAsync();
+        return Ok(drafts.Select(d => new
+        {
+            d.ManualJournalEntryDraftID, d.EntryType, d.Description, d.Status,
+            d.RequestedBy, d.RequestDate, d.ApprovedBy, d.ApprovalDate, d.RejectionReason,
+            Lines = System.Text.Json.JsonSerializer.Deserialize<List<ManualEntryLineInput>>(d.LinesJson)
+        }));
+    }
+
+    [HttpPost("manual-entries")]
+    [Authorize(Policy = "AccountingAdmin")]
+    public async Task<ActionResult> CreateManualEntry(CreateManualEntryRequest request)
+    {
+        await EnsurePeriodOpenAsync(DateTime.UtcNow);
+
+        var totalDebit = request.Lines.Sum(l => l.Debit);
+        var totalCredit = request.Lines.Sum(l => l.Credit);
+        if (request.Lines.Count < 2) throw new InvalidOperationException("Une écriture doit comporter au moins deux lignes.");
+        if (Math.Abs(totalDebit - totalCredit) > 0.01m)
+            throw new InvalidOperationException($"L'écriture n'est pas équilibrée : Débit {totalDebit:N2} ≠ Crédit {totalCredit:N2}.");
+
+        var draft = new ManualJournalEntryDraft
+        {
+            EntryType = request.EntryType,
+            Description = request.Description,
+            AgenceID = _currentUser.AgenceID ?? 0,
+            LinesJson = System.Text.Json.JsonSerializer.Serialize(request.Lines),
+            RequestedBy = _currentUser.CodeUser!
+        };
+        _db.ManualJournalEntryDrafts.Add(draft);
+        await _db.SaveChangesAsync();
+
+        return Ok(new { message = "Écriture manuelle soumise pour approbation.", draftId = draft.ManualJournalEntryDraftID });
+    }
+
+    [HttpPost("manual-entries/{id:int}/approve")]
+    [Authorize(Policy = "AccountingAdmin")]
+    public async Task<ActionResult> ApproveManualEntry(int id)
+    {
+        var draft = await _db.ManualJournalEntryDrafts.FirstOrDefaultAsync(d => d.ManualJournalEntryDraftID == id)
+            ?? throw new KeyNotFoundException("Brouillon introuvable.");
+        if (draft.Status != "PENDING") throw new InvalidOperationException("Ce brouillon a déjà été traité.");
+        if (draft.RequestedBy == _currentUser.CodeUser)
+            throw new InvalidOperationException("Vous ne pouvez pas approuver votre propre écriture (séparation des tâches).");
+
+        await EnsurePeriodOpenAsync(DateTime.UtcNow);
+
+        var lines = System.Text.Json.JsonSerializer.Deserialize<List<ManualEntryLineInput>>(draft.LinesJson)!;
+        var postedId = await _journal.PostManualEntryAsync(
+            draft.EntryType, draft.Description, draft.AgenceID, _currentUser.CodeUser!,
+            lines.Select(l => (l.GLAccountID, l.Debit, l.Credit, l.Description)).ToList(),
+            draft.ManualJournalEntryDraftID.ToString()
+        );
+
+        draft.Status = "APPROVED";
+        draft.ApprovedBy = _currentUser.CodeUser;
+        draft.ApprovalDate = DateTime.UtcNow;
+        draft.PostedJournalEntryID = postedId;
+        await _db.SaveChangesAsync();
+        await LogAsync("POST_MANUAL_ENTRY", null, $"DraftID={id}, JournalEntryID={postedId}");
+
+        return Ok(new { message = "Écriture manuelle approuvée et comptabilisée.", journalEntryId = postedId });
+    }
+
+    public record RejectManualEntryRequest(string Reason);
+
+    [HttpPost("manual-entries/{id:int}/reject")]
+    [Authorize(Policy = "AccountingAdmin")]
+    public async Task<ActionResult> RejectManualEntry(int id, RejectManualEntryRequest request)
+    {
+        var draft = await _db.ManualJournalEntryDrafts.FirstOrDefaultAsync(d => d.ManualJournalEntryDraftID == id)
+            ?? throw new KeyNotFoundException("Brouillon introuvable.");
+        if (draft.Status != "PENDING") throw new InvalidOperationException("Ce brouillon a déjà été traité.");
+
+        draft.Status = "REJECTED";
+        draft.RejectionReason = request.Reason;
+        draft.ApprovedBy = _currentUser.CodeUser;
+        draft.ApprovalDate = DateTime.UtcNow;
+        await _db.SaveChangesAsync();
+
+        return Ok(new { message = "Écriture manuelle rejetée." });
+    }
+
+    [HttpPost("entries/{journalEntryId:int}/reverse")]
+    [Authorize(Policy = "AccountingAdmin")]
+    public async Task<ActionResult> ReverseEntry(int journalEntryId)
+    {
+        await EnsurePeriodOpenAsync(DateTime.UtcNow);
+        var reversalId = await _journal.ReverseEntryAsync(journalEntryId, _currentUser.CodeUser!);
+        await LogAsync("REVERSE_ENTRY", null, $"Original={journalEntryId}, Reversal={reversalId}");
+        return Ok(new { message = "Écriture contre-passée.", reversalJournalEntryId = reversalId });
     }
 }

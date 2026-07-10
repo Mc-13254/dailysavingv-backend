@@ -11,6 +11,9 @@ public interface IJournalPostingService
     Task PostLoanRepaymentAsync(Loan loan, decimal principalPaid, decimal interestPaid, decimal penaltyPaid, string reference);
     Task PostLoanWriteOffAsync(Loan loan);
     Task PostCashVarianceAsync(int agenceId, int cashSessionId, decimal variance, string reference);
+    Task PostVaultTillMovementAsync(int agenceId, string movementType, decimal amount, string reference);
+    Task<int> PostManualEntryAsync(string entryType, string description, int agenceId, string postedBy, List<(int glAccountId, decimal debit, decimal credit, string? lineDesc)> lines, string? sourceReference = null);
+    Task<int> ReverseEntryAsync(int originalJournalEntryId, string postedBy);
 }
 
 /// <summary>
@@ -46,7 +49,7 @@ public class JournalPostingService : IJournalPostingService
 
     /// Creates the header + balanced lines. Throws if debits != credits — a
     /// silent accounting error is worse than a loud one.
-    private async Task PostAsync(string sourceType, string? sourceReference, int agenceId, string description, string createdBy, List<(int glAccountId, decimal debit, decimal credit, string? lineDesc)> lines)
+    private async Task<int> PostAsync(string sourceType, string? sourceReference, int agenceId, string description, string createdBy, List<(int glAccountId, decimal debit, decimal credit, string? lineDesc)> lines)
     {
         var totalDebit = lines.Sum(l => l.debit);
         var totalCredit = lines.Sum(l => l.credit);
@@ -77,11 +80,13 @@ public class JournalPostingService : IJournalPostingService
             });
         }
         await _db.SaveChangesAsync();
+
+        return entry.JournalEntryID;
     }
 
     public async Task PostTransactionAsync(Transactions tx)
     {
-        var cash = await GLAsync("1010");
+        var cash = await GLAsync("1011"); // teller till, not the vault
         var deposits = await GLAsync("2010");
         var commissionIncome = await GLAsync("4020");
         var createdBy = tx.CreatedBy ?? "SYSTEM";
@@ -130,7 +135,7 @@ public class JournalPostingService : IJournalPostingService
 
     public async Task PostLoanDisbursementAsync(Loan loan)
     {
-        var cash = await GLAsync("1010");
+        var cash = await GLAsync("1011"); // teller till
         var deposits = await GLAsync("2010");
         var loansReceivable = await GLAsync("1100");
 
@@ -152,7 +157,7 @@ public class JournalPostingService : IJournalPostingService
         var total = principalPaid + interestPaid + penaltyPaid;
         if (total <= 0) return;
 
-        var cash = await GLAsync("1010");
+        var cash = await GLAsync("1011"); // teller till
         var loansReceivable = await GLAsync("1100");
         var interestIncome = await GLAsync("4010");
         var penaltyIncome = await GLAsync("4030");
@@ -186,7 +191,7 @@ public class JournalPostingService : IJournalPostingService
     {
         if (Math.Abs(variance) < 0.01m) return; // balanced session, nothing to post
 
-        var cash = await GLAsync("1010");
+        var cash = await GLAsync("1011"); // teller till
         var overShortExpense = await GLAsync("5030");
 
         // Positive variance (physical > expected) = unexplained surplus, a credit
@@ -196,5 +201,40 @@ public class JournalPostingService : IJournalPostingService
             : new() { (cash, variance, 0, "Ajustement caisse"), (overShortExpense, 0, variance, "Excédent de caisse") };
 
         await PostAsync("CASH_VARIANCE", reference, agenceId, $"Écart de caisse — session #{cashSessionId}", "SYSTEM", lines);
+    }
+
+    public async Task PostVaultTillMovementAsync(int agenceId, string movementType, decimal amount, string reference)
+    {
+        // Both the Vault and the Till are "Cash on Hand" from the institution's
+        // point of view — moving cash between them is a real GL entry between
+        // two distinct cash sub-accounts, not a no-op like a client-to-client
+        // transfer within the same account.
+        if (movementType == "TRANSFER") return; // till-to-till: net zero on both sub-accounts, no entry needed
+
+        var vault = await GLAsync("1010");
+        var till = await GLAsync("1011");
+
+        var lines = movementType == "SUPPLY"
+            ? new List<(int, decimal, decimal, string?)> { (till, amount, 0, "Approvisionnement reçu"), (vault, 0, amount, "Approvisionnement envoyé") }
+            : new List<(int, decimal, decimal, string?)> { (vault, amount, 0, "Retour reçu"), (till, 0, amount, "Retour envoyé") };
+
+        await PostAsync("CASH_MOVEMENT", reference, agenceId, $"Mouvement de caisse {movementType} — {reference}", "SYSTEM", lines);
+    }
+
+    public async Task<int> PostManualEntryAsync(string entryType, string description, int agenceId, string postedBy, List<(int glAccountId, decimal debit, decimal credit, string? lineDesc)> lines, string? sourceReference = null) =>
+        await PostAsync(entryType, sourceReference, agenceId, description, postedBy, lines);
+
+    public async Task<int> ReverseEntryAsync(int originalJournalEntryId, string postedBy)
+    {
+        var original = await _db.JournalEntries.FirstOrDefaultAsync(e => e.JournalEntryID == originalJournalEntryId)
+            ?? throw new InvalidOperationException("Écriture d'origine introuvable.");
+        var originalLines = await _db.JournalEntryLines.Where(l => l.JournalEntryID == originalJournalEntryId).ToListAsync();
+        if (originalLines.Count == 0) throw new InvalidOperationException("Aucune ligne à contre-passer.");
+
+        // Exact mirror: every debit becomes a credit and vice versa.
+        var mirrored = originalLines.Select(l => (l.GLAccountID, l.Credit, l.Debit, (string?)$"Contre-passation de {original.EntryNumber}")).ToList();
+
+        return await PostAsync("REVERSAL", original.EntryNumber, original.AgenceID,
+            $"Contre-passation de {original.EntryNumber} ({original.Description})", postedBy, mirrored);
     }
 }

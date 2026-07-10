@@ -51,6 +51,7 @@ builder.Services.AddScoped<ITransactionService, TransactionService>();
 builder.Services.AddScoped<ICollectorPerformanceService, CollectorPerformanceService>();
 builder.Services.AddScoped<DailySavingV.API.Services.INotificationService, DailySavingV.API.Services.NotificationService>();
 builder.Services.AddScoped<DailySavingV.API.Services.IJournalPostingService, DailySavingV.API.Services.JournalPostingService>();
+builder.Services.AddScoped<DailySavingV.API.Services.IFraudDetectionService, DailySavingV.API.Services.FraudDetectionService>();
 builder.Services.AddScoped<DailySavingV.API.Services.NumberingService>();
 
 // ---- JWT Authentication ----
@@ -86,6 +87,13 @@ builder.Services.AddAuthorization(options =>
 {
     options.AddPolicy("AdminOnly", p => p.RequireClaim("role", "ADMIN"));
     options.AddPolicy("SupervisorOrAdmin", p => p.RequireClaim("role", "ADMIN", "SUPERVISOR"));
+
+    // Accounting Management RBAC. ACCOUNTANT / AUDITOR / FINANCE_OFFICER are not
+    // yet seeded as Role codes in this system — create them via Role Management
+    // if you want dedicated accounting staff; these policies already recognize
+    // them the moment they exist, no code change needed.
+    options.AddPolicy("AccountingView", p => p.RequireClaim("role", "ADMIN", "MANAGER", "SUPERVISOR", "ACCOUNTANT", "AUDITOR", "FINANCE_OFFICER"));
+    options.AddPolicy("AccountingAdmin", p => p.RequireClaim("role", "ADMIN", "ACCOUNTANT", "FINANCE_OFFICER"));
 });
 
 // ---- CORS (adjust the allowed origin to your deployed frontend URL) ----

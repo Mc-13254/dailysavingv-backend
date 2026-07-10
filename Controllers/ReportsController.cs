@@ -57,19 +57,23 @@ public class ReportsController : ControllerBase
         var collectors = await _db.Collectors.IgnoreQueryFilters().Where(c => collectorIds.Contains(c.CollectorID)).ToListAsync();
         var agencyIds = transactions.Select(t => t.AgenceID).Distinct().ToList();
         var agencies = await _db.Agences.IgnoreQueryFilters().Where(a => agencyIds.Contains(a.AgenceID)).ToListAsync();
+        var txIds = transactions.Select(t => t.TransactionID).ToList();
+        var fraudScores = await _db.FraudDetections.Where(f => txIds.Contains(f.TransactionID)).ToListAsync();
 
         var result = transactions.Select(t =>
         {
             var client = clients.FirstOrDefault(c => c.ClientID == t.ClientID);
             var collector = collectors.FirstOrDefault(c => c.CollectorID == t.CollectorID);
             var agence = agencies.FirstOrDefault(a => a.AgenceID == t.AgenceID);
+            var fraud = fraudScores.FirstOrDefault(f => f.TransactionID == t.TransactionID);
             return new TransactionHistoryRowDto(
                 t.TransactionID, t.ReceiptNumber, t.TransactionType.ToString(),
                 t.AccountID, t.ToAccountID, t.ClientID,
                 client != null ? $"{client.Nom} {client.Prenom}".Trim() : t.ClientID,
                 t.CollectorID, collector != null ? $"{collector.Name} {collector.Surname}".Trim() : null,
                 agence?.Nom ?? "—",
-                t.Montant, t.MontantCommission, t.PaymentMethod, t.Statut, t.DateTransaction
+                t.Montant, t.MontantCommission, t.PaymentMethod, t.Statut, t.DateTransaction,
+                fraud?.Score, fraud?.RiskLevel
             );
         });
 

@@ -21,12 +21,14 @@ public class TellerController : ControllerBase
     private readonly AppDbContext _db;
     private readonly ICurrentUserService _currentUser;
     private readonly Services.INotificationService _notifications;
+    private readonly Services.IJournalPostingService _journal;
 
-    public TellerController(AppDbContext db, ICurrentUserService currentUser, Services.INotificationService notifications)
+    public TellerController(AppDbContext db, ICurrentUserService currentUser, Services.INotificationService notifications, Services.IJournalPostingService journal)
     {
         _db = db;
         _currentUser = currentUser;
         _notifications = notifications;
+        _journal = journal;
     }
 
     private async Task<Vault> GetOrCreateVaultAsync(int agenceId)
@@ -146,6 +148,8 @@ public class TellerController : ControllerBase
         movement.ApprovedBy = _currentUser.CodeUser;
         movement.ApprovalDate = DateTime.UtcNow;
         await _db.SaveChangesAsync();
+
+        await _journal.PostVaultTillMovementAsync(movement.AgenceID, movement.MovementType, movement.Amount, movement.MovementNumber);
 
         return Ok(new { message = "Mouvement de caisse approuvé et exécuté.", vaultBalance = vault.Balance });
     }

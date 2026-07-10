@@ -81,6 +81,10 @@ public class AppDbContext : DbContext
     public DbSet<GLAccount> GLAccounts => Set<GLAccount>();
     public DbSet<JournalEntry> JournalEntries => Set<JournalEntry>();
     public DbSet<JournalEntryLine> JournalEntryLines => Set<JournalEntryLine>();
+    public DbSet<AccountingPeriod> AccountingPeriods => Set<AccountingPeriod>();
+    public DbSet<ManualJournalEntryDraft> ManualJournalEntryDrafts => Set<ManualJournalEntryDraft>();
+    public DbSet<AccountingActivityLog> AccountingActivityLogs => Set<AccountingActivityLog>();
+    public DbSet<FraudDetection> FraudDetections => Set<FraudDetection>();
     public DbSet<HistTransactions> HistTransactions => Set<HistTransactions>();
     public DbSet<BusinessCalendar> BusinessCalendars => Set<BusinessCalendar>();
     public DbSet<CashSession> CashSessions => Set<CashSession>();
@@ -543,6 +547,14 @@ public class AppDbContext : DbContext
             .HasOne(x => x.GLAccount).WithMany()
             .HasForeignKey(x => x.GLAccountID)
             .OnDelete(DeleteBehavior.Restrict);
+
+        modelBuilder.Entity<AccountingPeriod>().ToTable("AccountingPeriod");
+        modelBuilder.Entity<AccountingPeriod>().HasIndex(x => new { x.Year, x.Month }).IsUnique();
+        modelBuilder.Entity<ManualJournalEntryDraft>().ToTable("ManualJournalEntryDraft");
+        modelBuilder.Entity<AccountingActivityLog>().ToTable("AccountingActivityLog");
+        modelBuilder.Entity<FraudDetection>().ToTable("FraudDetection");
+        modelBuilder.Entity<FraudDetection>().HasIndex(x => x.TransactionID);
+        modelBuilder.Entity<FraudDetection>().HasOne<Transactions>().WithMany().HasForeignKey(x => x.TransactionID).OnDelete(DeleteBehavior.Restrict);
 
         modelBuilder.Entity<Vault>().Property(x => x.Balance).HasColumnType("decimal(18,2)");
         modelBuilder.Entity<Vault>().Property(x => x.MinimumBalance).HasColumnType("decimal(18,2)");
