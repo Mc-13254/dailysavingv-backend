@@ -124,7 +124,7 @@ public class AuthService : IAuthService
 
         return new LoginResponse(
             user.CodeUser, user.Username, user.Role!.Code, user.AgenceID, user.Agence?.Nom, user.Agence?.CodeAgence,
-            accessToken, refreshToken, expiresAt, user.MustChangePassword, user.Photo, user.Role!.RoleType
+            accessToken, refreshToken, expiresAt, user.MustChangePassword, user.Photo, user.Role!.RoleType ?? "CUSTOM"
         );
     }
 
@@ -162,7 +162,7 @@ public class AuthService : IAuthService
 
         return new LoginResponse(
             user.CodeUser, user.Username, user.Role!.Code, user.AgenceID, user.Agence?.Nom, user.Agence?.CodeAgence,
-            accessToken, newRefreshToken, expiresAt, user.MustChangePassword, user.Photo, user.Role!.RoleType
+            accessToken, newRefreshToken, expiresAt, user.MustChangePassword, user.Photo, user.Role!.RoleType ?? "CUSTOM"
         );
     }
 
@@ -187,7 +187,7 @@ public class AuthService : IAuthService
             new("codeUser", user.CodeUser),
             new("username", user.Username),
             new("role", user.Role!.Code),
-            new("roleType", user.Role!.RoleType),
+            new("roleType", user.Role!.RoleType ?? "CUSTOM"),
         };
 
         // Only add the agenceId claim when the user actually belongs to one.
