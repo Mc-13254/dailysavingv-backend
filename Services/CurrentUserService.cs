@@ -7,6 +7,7 @@ public class CurrentUserService : ICurrentUserService
     public string? CodeUser { get; }
     public int? AgenceID { get; }
     public string? RoleCode { get; }
+    public string? RoleType { get; }
     public bool IsHeadOffice { get; }
 
     public CurrentUserService(IHttpContextAccessor httpContextAccessor)
@@ -20,12 +21,13 @@ public class CurrentUserService : ICurrentUserService
 
         CodeUser = user.FindFirst("codeUser")?.Value;
         RoleCode = user.FindFirst("role")?.Value;
+        RoleType = user.FindFirst("roleType")?.Value;
 
         var agenceClaim = user.FindFirst("agenceId")?.Value;
         AgenceID = string.IsNullOrEmpty(agenceClaim) ? null : int.Parse(agenceClaim);
 
         // Only ADMIN role is treated as Head Office (sees every agency).
         // SUPERVISOR and COLLECTOR are always confined to their own AgenceID.
-        IsHeadOffice = RoleCode == "ADMIN";
+        IsHeadOffice = RoleType == "ADMIN";
     }
 }

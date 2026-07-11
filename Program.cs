@@ -85,15 +85,15 @@ builder.Services.AddAuthentication(options =>
 
 builder.Services.AddAuthorization(options =>
 {
-    options.AddPolicy("AdminOnly", p => p.RequireClaim("role", "ADMIN"));
-    options.AddPolicy("SupervisorOrAdmin", p => p.RequireClaim("role", "ADMIN", "SUPERVISOR"));
+    options.AddPolicy("AdminOnly", p => p.RequireClaim("roleType", "ADMIN"));
+    options.AddPolicy("SupervisorOrAdmin", p => p.RequireClaim("roleType", "ADMIN", "SUPERVISOR"));
 
     // Accounting Management RBAC. ACCOUNTANT / AUDITOR / FINANCE_OFFICER are not
     // yet seeded as Role codes in this system — create them via Role Management
     // if you want dedicated accounting staff; these policies already recognize
     // them the moment they exist, no code change needed.
-    options.AddPolicy("AccountingView", p => p.RequireClaim("role", "ADMIN", "MANAGER", "SUPERVISOR", "ACCOUNTANT", "AUDITOR", "FINANCE_OFFICER"));
-    options.AddPolicy("AccountingAdmin", p => p.RequireClaim("role", "ADMIN", "ACCOUNTANT", "FINANCE_OFFICER"));
+    options.AddPolicy("AccountingView", p => p.RequireClaim("roleType", "ADMIN", "MANAGER", "SUPERVISOR", "ACCOUNTANT", "AUDITOR", "FINANCE_OFFICER"));
+    options.AddPolicy("AccountingAdmin", p => p.RequireClaim("roleType", "ADMIN", "ACCOUNTANT", "FINANCE_OFFICER"));
 });
 
 // ---- CORS (adjust the allowed origin to your deployed frontend URL) ----

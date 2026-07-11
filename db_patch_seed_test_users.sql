@@ -13,33 +13,33 @@ END
 ELSE
 BEGIN
     -- CASHIER
-    IF EXISTS (SELECT 1 FROM Role WHERE Code = 'CASHIER') AND NOT EXISTS (SELECT 1 FROM Users WHERE Username = 'test.cashier')
+    IF EXISTS (SELECT 1 FROM Role WHERE RoleType = 'CASHIER') AND NOT EXISTS (SELECT 1 FROM Users WHERE Username = 'test.cashier')
         INSERT INTO Users (CodeUser, Username, PasswordHash, RoleID, FirstName, LastName, AgenceID, Statut, ValidationStatus, MustChangePassword)
         SELECT 'U-TEST-CASH', 'test.cashier', @PasswordHash, RoleID, 'Test', 'Cashier', @AgenceID, 'ACTIVE', 'VALIDATED', 1
-        FROM Role WHERE Code = 'CASHIER';
+        FROM Role WHERE RoleType = 'CASHIER';
 
     -- SUPERVISOR
-    IF EXISTS (SELECT 1 FROM Role WHERE Code = 'SUPERVISOR') AND NOT EXISTS (SELECT 1 FROM Users WHERE Username = 'test.supervisor')
+    IF EXISTS (SELECT 1 FROM Role WHERE RoleType = 'SUPERVISOR') AND NOT EXISTS (SELECT 1 FROM Users WHERE Username = 'test.supervisor')
         INSERT INTO Users (CodeUser, Username, PasswordHash, RoleID, FirstName, LastName, AgenceID, Statut, ValidationStatus, MustChangePassword)
         SELECT 'U-TEST-SUP', 'test.supervisor', @PasswordHash, RoleID, 'Test', 'Supervisor', @AgenceID, 'ACTIVE', 'VALIDATED', 1
-        FROM Role WHERE Code = 'SUPERVISOR';
+        FROM Role WHERE RoleType = 'SUPERVISOR';
 
     -- MANAGER
-    IF EXISTS (SELECT 1 FROM Role WHERE Code = 'MANAGER') AND NOT EXISTS (SELECT 1 FROM Users WHERE Username = 'test.manager')
+    IF EXISTS (SELECT 1 FROM Role WHERE RoleType = 'MANAGER') AND NOT EXISTS (SELECT 1 FROM Users WHERE Username = 'test.manager')
         INSERT INTO Users (CodeUser, Username, PasswordHash, RoleID, FirstName, LastName, AgenceID, Statut, ValidationStatus, MustChangePassword)
         SELECT 'U-TEST-MGR', 'test.manager', @PasswordHash, RoleID, 'Test', 'Manager', @AgenceID, 'ACTIVE', 'VALIDATED', 1
-        FROM Role WHERE Code = 'MANAGER';
+        FROM Role WHERE RoleType = 'MANAGER';
 
     -- COLLECTOR (user account only — not the Collector business-entity profile)
-    IF EXISTS (SELECT 1 FROM Role WHERE Code = 'COLLECTOR') AND NOT EXISTS (SELECT 1 FROM Users WHERE Username = 'test.collector')
+    IF EXISTS (SELECT 1 FROM Role WHERE RoleType = 'COLLECTOR') AND NOT EXISTS (SELECT 1 FROM Users WHERE Username = 'test.collector')
         INSERT INTO Users (CodeUser, Username, PasswordHash, RoleID, FirstName, LastName, AgenceID, Statut, ValidationStatus, MustChangePassword)
         SELECT 'U-TEST-COL', 'test.collector', @PasswordHash, RoleID, 'Test', 'Collector', @AgenceID, 'ACTIVE', 'VALIDATED', 1
-        FROM Role WHERE Code = 'COLLECTOR';
+        FROM Role WHERE RoleType = 'COLLECTOR';
 
     -- ADMIN (only created if none exists yet — most installs already have one)
-    IF EXISTS (SELECT 1 FROM Role WHERE Code = 'ADMIN') AND NOT EXISTS (SELECT 1 FROM Users u INNER JOIN Role r ON u.RoleID = r.RoleID WHERE r.Code = 'ADMIN')
+    IF EXISTS (SELECT 1 FROM Role WHERE RoleType = 'ADMIN') AND NOT EXISTS (SELECT 1 FROM Users u INNER JOIN Role r ON u.RoleID = r.RoleID WHERE r.RoleType = 'ADMIN')
         INSERT INTO Users (CodeUser, Username, PasswordHash, RoleID, FirstName, LastName, AgenceID, Statut, ValidationStatus, MustChangePassword)
         SELECT 'U-TEST-ADM', 'test.admin', @PasswordHash, RoleID, 'Test', 'Admin', @AgenceID, 'ACTIVE', 'VALIDATED', 1
-        FROM Role WHERE Code = 'ADMIN';
+        FROM Role WHERE RoleType = 'ADMIN';
 END
 GO

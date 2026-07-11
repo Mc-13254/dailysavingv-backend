@@ -12,6 +12,13 @@ public interface ICurrentUserService
     string? RoleCode { get; }
 
     /// <summary>
+    /// The semantic role classification (ADMIN/SUPERVISOR/MANAGER/CASHIER/
+    /// COLLECTOR/CUSTOM) — this is what authorization actually checks. Unlike
+    /// RoleCode (a sequential ID like "ROL005"), this is stable and explicit.
+    /// </summary>
+    string? RoleType { get; }
+
+    /// <summary>
     /// True for roles that must see data across all agencies (e.g. ADMIN at HQ).
     /// False for everyone else, including SUPERVISOR (agency-level, not HQ-level).
     /// </summary>

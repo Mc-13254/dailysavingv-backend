@@ -21,7 +21,7 @@ INSERT INTO @RoleModules (RoleCode, Module) VALUES
 INSERT INTO RolePermission (RoleID, PermissionID, Allowed)
 SELECT r.RoleID, p.PermissionID, 1
 FROM @RoleModules rm
-INNER JOIN Role r ON r.Code = rm.RoleCode
+INNER JOIN Role r ON r.RoleType = rm.RoleCode
 INNER JOIN Permission p ON p.Module = rm.Module
 WHERE NOT EXISTS (SELECT 1 FROM RolePermission rp WHERE rp.RoleID = r.RoleID AND rp.PermissionID = p.PermissionID);
 GO

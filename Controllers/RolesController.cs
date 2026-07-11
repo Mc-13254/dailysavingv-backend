@@ -18,11 +18,13 @@ public class RolesController : ControllerBase
 {
     private readonly AppDbContext _db;
     private readonly ICurrentUserService _currentUser;
+    private readonly Services.NumberingService _numbering;
 
-    public RolesController(AppDbContext db, ICurrentUserService currentUser)
+    public RolesController(AppDbContext db, ICurrentUserService currentUser, Services.NumberingService numbering)
     {
         _db = db;
         _currentUser = currentUser;
+        _numbering = numbering;
     }
 
     [HttpGet]
@@ -35,7 +37,7 @@ public class RolesController : ControllerBase
             .ToDictionaryAsync(g => g.Key, g => g.Count);
 
         var result = roles.Select(r => new RoleDto(
-            r.RoleID, r.Code, r.Libelle, r.Description, r.Statut,
+            r.RoleID, r.Code, r.Libelle, r.Description, r.RoleType, r.Statut,
             userCounts.TryGetValue(r.RoleID, out var c) ? c : 0,
             r.CreatedBy, r.CreatedDate, r.UpdatedBy, r.UpdatedDate
         ));
@@ -66,6 +68,7 @@ public class RolesController : ControllerBase
             ActionType = PendingActionType.CREATE,
             Libelle = request.Libelle,
             Description = request.Description,
+            RoleType = string.IsNullOrWhiteSpace(request.RoleType) ? "CUSTOM" : request.RoleType,
             Statut = true,
             RequestUser = _currentUser.CodeUser!,
             NewData = JsonSerializer.Serialize(request)
@@ -93,6 +96,7 @@ public class RolesController : ControllerBase
             TargetRoleID = id,
             Libelle = request.Libelle,
             Description = request.Description,
+            RoleType = request.RoleType,
             Statut = request.Statut,
             RequestUser = _currentUser.CodeUser!,
             PreviousData = JsonSerializer.Serialize(existing),
@@ -155,16 +159,25 @@ public class RolesController : ControllerBase
             if (nameExists)
                 return BadRequest(new { message = "Role already exists." });
 
-            var count = await _db.Roles.CountAsync();
-            var code = SlugifyRoleCode(draft.Libelle!);
-            if (await _db.Roles.AnyAsync(r => r.Code == code))
-                code = $"{code}_{(count + 1)}"; // fall back to a unique suffix on a genuine name collision
+            string code;
+            try
+            {
+                code = await _numbering.GenerateNextAsync("Role");
+            }
+            catch (InvalidOperationException)
+            {
+                // No active numbering rule configured for "Role" yet — fall back
+                // to a simple sequential scheme rather than blocking creation.
+                var count = await _db.Roles.CountAsync();
+                code = $"ROL{(count + 1):D3}";
+            }
 
             _db.Roles.Add(new Entities.Role
             {
                 Code = code,
                 Libelle = draft.Libelle!,
                 Description = draft.Description,
+                RoleType = draft.RoleType ?? "CUSTOM",
                 Statut = true,
                 CreatedBy = draft.RequestUser
             });
@@ -175,6 +188,7 @@ public class RolesController : ControllerBase
                 ?? throw new KeyNotFoundException("Target role no longer exists.");
             if (draft.Libelle != null) existing.Libelle = draft.Libelle;
             existing.Description = draft.Description;
+            if (!string.IsNullOrWhiteSpace(draft.RoleType)) existing.RoleType = draft.RoleType;
             if (draft.Statut.HasValue) existing.Statut = draft.Statut.Value;
             existing.UpdatedBy = _currentUser.CodeUser;
             existing.UpdatedDate = DateTime.UtcNow;
@@ -213,18 +227,5 @@ public class RolesController : ControllerBase
         draft.RejectionReason = request.Reason;
         await _db.SaveChangesAsync();
         return Ok(new { message = "Rôle rejeté." });
-    }
-
-    // Turns a human-entered role name ("Cashier", "Régional Manager") into a
-    // stable, semantic Code ("CASHIER", "REGIONAL_MANAGER") — this is what
-    // authorization policies, permission seeds, and notification routing
-    // match against, so it must be predictable, not an arbitrary sequence.
-    private static string SlugifyRoleCode(string libelle)
-    {
-        var normalized = libelle.Trim().ToUpperInvariant();
-        var chars = normalized.Select(c => char.IsLetterOrDigit(c) ? c : '_');
-        var slug = new string(chars.ToArray());
-        while (slug.Contains("__")) slug = slug.Replace("__", "_");
-        return slug.Trim('_');
     }
 }

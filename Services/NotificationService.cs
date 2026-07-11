@@ -30,8 +30,8 @@ public class NotificationService : INotificationService
         // "Supervisors" = anyone in this agency whose role code contains SUPERVISOR, MANAGER, or ADMIN.
         var recipients = await _db.Users.IgnoreQueryFilters()
             .Include(u => u.Role)
-            .Where(u => u.Statut == "ACTIVE" && (u.AgenceID == agenceId || u.Role!.Code.Contains("ADMIN")))
-            .Where(u => u.Role != null && (u.Role.Code.Contains("SUPERVISOR") || u.Role.Code.Contains("MANAGER") || u.Role.Code.Contains("ADMIN")))
+            .Where(u => u.Statut == "ACTIVE" && (u.AgenceID == agenceId || u.Role!.RoleType == "ADMIN"))
+            .Where(u => u.Role != null && (u.Role.RoleType == "SUPERVISOR" || u.Role.RoleType == "MANAGER" || u.Role.RoleType == "ADMIN"))
             .Select(u => u.CodeUser)
             .Distinct()
             .ToListAsync();

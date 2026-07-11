@@ -31,7 +31,7 @@ public class PermissionsController : ControllerBase
         if (role == null) return Ok(new List<string>());
 
         // Administrators always see everything, regardless of stored RolePermission rows.
-        if (role.Code == "ADMIN")
+        if (role.RoleType == "ADMIN")
             return Ok(await _db.Permissions.Select(p => p.Module).Distinct().ToListAsync());
 
         var modules = await _db.RolePermissions
@@ -68,7 +68,7 @@ public class PermissionsController : ControllerBase
         var permissions = await _db.Permissions.ToListAsync();
 
         // Administrator always shows (and enforces) full access, regardless of stored rows.
-        var isAdmin = role.Code == "ADMIN";
+        var isAdmin = role.RoleType == "ADMIN";
 
         var result = permissions.Select(p => new RolePermissionStateDto(
             p.PermissionID, p.PermissionName, p.Module, p.Action,
@@ -85,7 +85,7 @@ public class PermissionsController : ControllerBase
 
         // Administrator role always has full permissions — this endpoint is a no-op for it,
         // but still returns success so the frontend doesn't show a confusing error.
-        if (role.Code == "ADMIN")
+        if (role.RoleType == "ADMIN")
             return Ok(new { message = "Le rôle Administrator possède toujours tous les droits." });
 
         var existing = await _db.RolePermissions.Where(rp => rp.RoleID == roleId).ToListAsync();

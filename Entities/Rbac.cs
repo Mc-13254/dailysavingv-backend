@@ -3,9 +3,16 @@ namespace DailySavingV.API.Entities;
 public class Role
 {
     public int RoleID { get; set; }
-    public string Code { get; set; } = null!;   // ADMIN / SUPERVISOR / COLLECTOR
+    public string Code { get; set; } = null!;   // sequential identifier (ROL001, ROL002...) — NOT semantic, see RoleType
     public string Libelle { get; set; } = null!;
     public string? Description { get; set; }
+
+    // The one semantic anchor authorization actually relies on — set
+    // explicitly at role creation (a dropdown, not free text), independent
+    // of Code (a sequential ID) and Libelle (a display name someone could
+    // rename or typo). ADMIN / SUPERVISOR / MANAGER / CASHIER / COLLECTOR / CUSTOM.
+    public string RoleType { get; set; } = "CUSTOM";
+
     public bool Statut { get; set; } = true;
     public string? CreatedBy { get; set; }
     public DateTime CreatedDate { get; set; } = DateTime.UtcNow;
