@@ -156,7 +156,9 @@ public class RolesController : ControllerBase
                 return BadRequest(new { message = "Role already exists." });
 
             var count = await _db.Roles.CountAsync();
-            var code = $"ROL{(count + 1):D3}";
+            var code = SlugifyRoleCode(draft.Libelle!);
+            if (await _db.Roles.AnyAsync(r => r.Code == code))
+                code = $"{code}_{(count + 1)}"; // fall back to a unique suffix on a genuine name collision
 
             _db.Roles.Add(new Entities.Role
             {
@@ -211,5 +213,18 @@ public class RolesController : ControllerBase
         draft.RejectionReason = request.Reason;
         await _db.SaveChangesAsync();
         return Ok(new { message = "Rôle rejeté." });
+    }
+
+    // Turns a human-entered role name ("Cashier", "Régional Manager") into a
+    // stable, semantic Code ("CASHIER", "REGIONAL_MANAGER") — this is what
+    // authorization policies, permission seeds, and notification routing
+    // match against, so it must be predictable, not an arbitrary sequence.
+    private static string SlugifyRoleCode(string libelle)
+    {
+        var normalized = libelle.Trim().ToUpperInvariant();
+        var chars = normalized.Select(c => char.IsLetterOrDigit(c) ? c : '_');
+        var slug = new string(chars.ToArray());
+        while (slug.Contains("__")) slug = slug.Replace("__", "_");
+        return slug.Trim('_');
     }
 }
