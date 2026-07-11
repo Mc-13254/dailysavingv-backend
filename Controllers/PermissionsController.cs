@@ -9,7 +9,7 @@ namespace DailySavingV.API.Controllers;
 
 [ApiController]
 [Route("api/[controller]")]
-[Authorize(Policy = "AdminOnly")]
+[Authorize]
 public class PermissionsController : ControllerBase
 {
     private readonly AppDbContext _db;
@@ -21,8 +21,9 @@ public class PermissionsController : ControllerBase
         _currentUser = currentUser;
     }
 
-    // Overrides the class-level AdminOnly policy — every authenticated user needs
-    // this to know which sidebar sections they're allowed to see, not just admins.
+    // Every authenticated user needs this to know which sidebar sections
+    // they're allowed to see, not just admins — the other endpoints in this
+    // controller are individually gated with AdminOnly instead.
     [HttpGet("my-modules")]
     [Authorize]
     public async Task<ActionResult<IEnumerable<string>>> MyModules()
@@ -45,6 +46,7 @@ public class PermissionsController : ControllerBase
 
     // Full catalog, grouped by Module on the frontend.
     [HttpGet]
+    [Authorize(Policy = "AdminOnly")]
     public async Task<ActionResult<IEnumerable<PermissionDto>>> GetAll()
     {
         var result = await _db.Permissions
@@ -56,6 +58,7 @@ public class PermissionsController : ControllerBase
     // The full permission matrix for one role, with each permission's current Allowed state
     // (defaults to false if no RolePermission row exists yet for that pair).
     [HttpGet("role/{roleId:int}")]
+    [Authorize(Policy = "AdminOnly")]
     public async Task<ActionResult<IEnumerable<RolePermissionStateDto>>> GetForRole(int roleId)
     {
         var role = await _db.Roles.FirstOrDefaultAsync(r => r.RoleID == roleId)
@@ -78,6 +81,7 @@ public class PermissionsController : ControllerBase
     }
 
     [HttpPost("role/{roleId:int}")]
+    [Authorize(Policy = "AdminOnly")]
     public async Task<ActionResult> SaveForRole(int roleId, SaveRolePermissionsRequest request)
     {
         var role = await _db.Roles.FirstOrDefaultAsync(r => r.RoleID == roleId)
