@@ -257,7 +257,7 @@ public class TransactionController : ControllerBase
 
     public record CreateReversalRequestDto(string ClientID, string? CollectorID, decimal Montant, string Reason);
     public record RejectReversalDto(string Reason);
-    public record ExecuteReversalDto(long TransactionID);
+    public record ExecuteReversalDto(string ReceiptNumber);
 
     [HttpPost("reversal-requests")]
     public async Task<ActionResult> CreateReversalRequest(CreateReversalRequestDto request)
@@ -290,11 +290,14 @@ public class TransactionController : ControllerBase
         var clients = await _db.Clients.IgnoreQueryFilters().Where(c => clientIds.Contains(c.ClientID)).ToListAsync();
         var collectorIds = requests.Where(r => r.CollectorID != null).Select(r => r.CollectorID!).Distinct().ToList();
         var collectors = await _db.Collectors.IgnoreQueryFilters().Where(c => collectorIds.Contains(c.CollectorID)).ToListAsync();
+        var executedTxIds = requests.Where(r => r.TransactionID.HasValue).Select(r => r.TransactionID!.Value).Distinct().ToList();
+        var executedTx = await _db.Transactions.IgnoreQueryFilters().Where(t => executedTxIds.Contains(t.TransactionID)).ToListAsync();
 
         return Ok(requests.Select(r =>
         {
             var client = clients.FirstOrDefault(c => c.ClientID == r.ClientID);
             var collector = collectors.FirstOrDefault(c => c.CollectorID == r.CollectorID);
+            var tx = r.TransactionID.HasValue ? executedTx.FirstOrDefault(t => t.TransactionID == r.TransactionID.Value) : null;
             return new
             {
                 r.TransactionReversalRequestID, r.ClientID,
@@ -302,7 +305,7 @@ public class TransactionController : ControllerBase
                 r.CollectorID, CollectorName = collector != null ? $"{collector.Name} {collector.Surname}".Trim() : null,
                 r.Montant, r.Reason, r.Status, r.RequestedBy, r.RequestDate,
                 r.ApprovedBy, r.ApprovalDate, r.RejectionReason,
-                r.TransactionID, r.ExecutedBy, r.ExecutionDate
+                r.TransactionID, ReceiptNumber = tx?.ReceiptNumber, r.ExecutedBy, r.ExecutionDate
             };
         }));
     }
@@ -353,8 +356,9 @@ public class TransactionController : ControllerBase
         if (req.Status != "APPROVED")
             throw new InvalidOperationException("Cette demande doit être approuvée avant de pouvoir être exécutée.");
 
-        var tx = await _db.Transactions.FirstOrDefaultAsync(t => t.TransactionID == request.TransactionID)
-            ?? throw new KeyNotFoundException("Transaction introuvable.");
+        var receiptNumber = request.ReceiptNumber.Trim();
+        var tx = await _db.Transactions.FirstOrDefaultAsync(t => t.ReceiptNumber == receiptNumber)
+            ?? throw new KeyNotFoundException("Aucune transaction ne correspond à ce numéro de reçu.");
         if (tx.ClientID != req.ClientID)
             throw new InvalidOperationException("Cette transaction n'appartient pas au client indiqué dans la demande approuvée.");
         if (Math.Abs(tx.Montant - req.Montant) > 0.01m)
