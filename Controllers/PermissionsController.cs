@@ -21,6 +21,28 @@ public class PermissionsController : ControllerBase
         _currentUser = currentUser;
     }
 
+    // Overrides the class-level AdminOnly policy — every authenticated user needs
+    // this to know which sidebar sections they're allowed to see, not just admins.
+    [HttpGet("my-modules")]
+    [Authorize]
+    public async Task<ActionResult<IEnumerable<string>>> MyModules()
+    {
+        var role = await _db.Roles.FirstOrDefaultAsync(r => r.Code == _currentUser.RoleCode);
+        if (role == null) return Ok(new List<string>());
+
+        // Administrators always see everything, regardless of stored RolePermission rows.
+        if (role.Code == "ADMIN")
+            return Ok(await _db.Permissions.Select(p => p.Module).Distinct().ToListAsync());
+
+        var modules = await _db.RolePermissions
+            .Where(rp => rp.RoleID == role.RoleID && rp.Allowed)
+            .Join(_db.Permissions, rp => rp.PermissionID, p => p.PermissionID, (rp, p) => p.Module)
+            .Distinct()
+            .ToListAsync();
+
+        return Ok(modules);
+    }
+
     // Full catalog, grouped by Module on the frontend.
     [HttpGet]
     public async Task<ActionResult<IEnumerable<PermissionDto>>> GetAll()

@@ -122,13 +122,18 @@ app.Use(async (context, next) =>
     }
     catch (Exception ex) when (ex is not (System.Threading.Tasks.TaskCanceledException or OperationCanceledException))
     {
+        // The useful detail for DbUpdateException/SqlException is almost always
+        // in the InnerException, not ex.Message itself ("An error occurred while
+        // saving..." tells you nothing on its own).
+        var fullMessage = ex.InnerException != null ? $"{ex.Message} | Inner: {ex.InnerException.Message}" : ex.Message;
+
         try
         {
             using var scope = context.RequestServices.CreateScope();
             var db = scope.ServiceProvider.GetRequiredService<DailySavingV.API.Data.AppDbContext>();
             db.ErrorLogs.Add(new DailySavingV.API.Entities.ErrorLog
             {
-                Message = ex.Message,
+                Message = fullMessage,
                 ExceptionType = ex.GetType().Name,
                 StackTrace = ex.StackTrace,
                 RequestPath = context.Request.Path,

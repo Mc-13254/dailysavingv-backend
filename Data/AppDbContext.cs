@@ -188,6 +188,8 @@ public class AppDbContext : DbContext
         modelBuilder.Entity<HistTransactions>().HasKey(x => x.HistTransactionID);
         modelBuilder.Entity<RefreshToken>().HasKey(x => x.TokenID);
         modelBuilder.Entity<FailedLoginAttempt>().HasKey(x => x.AttemptID);
+        modelBuilder.Entity<PasswordPolicy>().ToTable("PasswordPolicy");
+        modelBuilder.Entity<PasswordHistory>().ToTable("PasswordHistory");
 
         // Pending (Maker-Checker) tables all use "PendingID" as their key,
         // which never matches the "{ClassName}Id" convention either.
