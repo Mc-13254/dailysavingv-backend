@@ -67,14 +67,22 @@ public class Transactions
 public class TransactionReversalRequest
 {
     public int TransactionReversalRequestID { get; set; }
-    public long TransactionID { get; set; }
+    public string ClientID { get; set; } = null!;
+    public string? CollectorID { get; set; }
+    public decimal Montant { get; set; }
     public string Reason { get; set; } = null!;
-    public string Status { get; set; } = "PENDING"; // PENDING / APPROVED / REJECTED
+    public string Status { get; set; } = "PENDING"; // PENDING / APPROVED / REJECTED / COMPLETED
     public string RequestedBy { get; set; } = null!;
     public DateTime RequestDate { get; set; } = DateTime.UtcNow;
     public string? ApprovedBy { get; set; }
     public DateTime? ApprovalDate { get; set; }
     public string? RejectionReason { get; set; }
+
+    // Only filled in once APPROVED — the maker then looks up the exact
+    // transaction and executes the reversal immediately, no further approval.
+    public long? TransactionID { get; set; }
+    public string? ExecutedBy { get; set; }
+    public DateTime? ExecutionDate { get; set; }
 }
 
 public class HistTransactions

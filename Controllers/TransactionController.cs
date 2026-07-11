@@ -247,27 +247,30 @@ public class TransactionController : ControllerBase
         return Ok(new { message = "Ligne rejetée." });
     }
 
-    // ---- Transaction Reversal (Deposit/Withdrawal/Transfer) — Maker-Checker ----
-    // Reverses the account balance impact AND the accounting journal entry.
+    // ---- Transaction Reversal — standalone module, two-phase workflow ----
+    // Phase 1: maker requests a reversal describing Client/Collector/Amount/Reason
+    //          (no transaction ID needed — they may not have it on hand).
+    // Phase 2: supervisor approves/rejects the REQUEST itself.
+    // Phase 3: once APPROVED, the maker enters the exact TransactionID and
+    //          executes — the reversal happens immediately, no further approval.
     // Not applicable to Daily Collections or Loan repayments (out of this ask's scope).
 
-    public record RequestReversalRequest(string Reason);
+    public record CreateReversalRequestDto(string ClientID, string? CollectorID, decimal Montant, string Reason);
+    public record RejectReversalDto(string Reason);
+    public record ExecuteReversalDto(long TransactionID);
 
-    [HttpPost("{id:long}/request-reversal")]
-    public async Task<ActionResult> RequestReversal(long id, RequestReversalRequest request)
+    [HttpPost("reversal-requests")]
+    public async Task<ActionResult> CreateReversalRequest(CreateReversalRequestDto request)
     {
-        var tx = await _db.Transactions.FirstOrDefaultAsync(t => t.TransactionID == id)
-            ?? throw new KeyNotFoundException("Transaction introuvable.");
-        if (tx.TransactionType is not (TransactionType.DEPOSIT or TransactionType.WITHDRAWAL or TransactionType.TRANSFER))
-            throw new InvalidOperationException("Seuls les dépôts, retraits et transferts peuvent être contre-passés.");
-        if (tx.Statut != "VALIDATED")
-            throw new InvalidOperationException("Cette transaction n'est plus dans un état permettant une contre-passation.");
-        if (await _db.TransactionReversalRequests.AnyAsync(r => r.TransactionID == id && r.Status == "PENDING"))
-            throw new InvalidOperationException("Une demande de contre-passation est déjà en attente pour cette transaction.");
+        if (request.Montant <= 0) throw new InvalidOperationException("Le montant doit être supérieur à zéro.");
+        if (!await _db.Clients.AnyAsync(c => c.ClientID == request.ClientID))
+            throw new InvalidOperationException("Client introuvable.");
 
         _db.TransactionReversalRequests.Add(new TransactionReversalRequest
         {
-            TransactionID = id,
+            ClientID = request.ClientID,
+            CollectorID = request.CollectorID,
+            Montant = request.Montant,
             Reason = request.Reason,
             RequestedBy = _currentUser.CodeUser!
         });
@@ -277,30 +280,36 @@ public class TransactionController : ControllerBase
     }
 
     [HttpGet("reversal-requests")]
-    [Authorize(Policy = "SupervisorOrAdmin")]
     public async Task<ActionResult> ReversalRequests([FromQuery] string? status)
     {
         var query = _db.TransactionReversalRequests.AsQueryable();
         if (!string.IsNullOrWhiteSpace(status)) query = query.Where(r => r.Status == status);
         var requests = await query.OrderByDescending(r => r.RequestDate).Take(200).ToListAsync();
 
-        var txIds = requests.Select(r => r.TransactionID).ToList();
-        var tx = await _db.Transactions.IgnoreQueryFilters().Where(t => txIds.Contains(t.TransactionID)).ToListAsync();
+        var clientIds = requests.Select(r => r.ClientID).Distinct().ToList();
+        var clients = await _db.Clients.IgnoreQueryFilters().Where(c => clientIds.Contains(c.ClientID)).ToListAsync();
+        var collectorIds = requests.Where(r => r.CollectorID != null).Select(r => r.CollectorID!).Distinct().ToList();
+        var collectors = await _db.Collectors.IgnoreQueryFilters().Where(c => collectorIds.Contains(c.CollectorID)).ToListAsync();
 
         return Ok(requests.Select(r =>
         {
-            var t = tx.FirstOrDefault(t => t.TransactionID == r.TransactionID);
+            var client = clients.FirstOrDefault(c => c.ClientID == r.ClientID);
+            var collector = collectors.FirstOrDefault(c => c.CollectorID == r.CollectorID);
             return new
             {
-                r.TransactionReversalRequestID, r.TransactionID, t?.ReceiptNumber, TransactionType = t?.TransactionType.ToString(),
-                Montant = t?.Montant, r.Reason, r.Status, r.RequestedBy, r.RequestDate, r.ApprovedBy, r.ApprovalDate, r.RejectionReason
+                r.TransactionReversalRequestID, r.ClientID,
+                ClientName = client != null ? $"{client.Nom} {client.Prenom}".Trim() : r.ClientID,
+                r.CollectorID, CollectorName = collector != null ? $"{collector.Name} {collector.Surname}".Trim() : null,
+                r.Montant, r.Reason, r.Status, r.RequestedBy, r.RequestDate,
+                r.ApprovedBy, r.ApprovalDate, r.RejectionReason,
+                r.TransactionID, r.ExecutedBy, r.ExecutionDate
             };
         }));
     }
 
     [HttpPost("reversal-requests/{id:int}/approve")]
     [Authorize(Policy = "SupervisorOrAdmin")]
-    public async Task<ActionResult> ApproveReversal(int id)
+    public async Task<ActionResult> ApproveReversalRequest(int id)
     {
         var req = await _db.TransactionReversalRequests.FirstOrDefaultAsync(r => r.TransactionReversalRequestID == id)
             ?? throw new KeyNotFoundException("Demande introuvable.");
@@ -308,8 +317,53 @@ public class TransactionController : ControllerBase
         if (req.RequestedBy == _currentUser.CodeUser)
             throw new InvalidOperationException("Vous ne pouvez pas approuver votre propre demande de contre-passation.");
 
-        var tx = await _db.Transactions.FirstOrDefaultAsync(t => t.TransactionID == req.TransactionID)
+        // Approving only authorizes the reversal — it does NOT touch any
+        // transaction yet. That happens at execution, once the maker supplies
+        // the exact transaction ID.
+        req.Status = "APPROVED";
+        req.ApprovedBy = _currentUser.CodeUser;
+        req.ApprovalDate = DateTime.UtcNow;
+        await _db.SaveChangesAsync();
+
+        return Ok(new { message = "Demande approuvée. Le champ ID de transaction est maintenant disponible pour l'exécution." });
+    }
+
+    [HttpPost("reversal-requests/{id:int}/reject")]
+    [Authorize(Policy = "SupervisorOrAdmin")]
+    public async Task<ActionResult> RejectReversalRequest(int id, RejectReversalDto request)
+    {
+        var req = await _db.TransactionReversalRequests.FirstOrDefaultAsync(r => r.TransactionReversalRequestID == id)
+            ?? throw new KeyNotFoundException("Demande introuvable.");
+        if (req.Status != "PENDING") throw new InvalidOperationException("Cette demande a déjà été traitée.");
+
+        req.Status = "REJECTED";
+        req.RejectionReason = request.Reason;
+        req.ApprovedBy = _currentUser.CodeUser;
+        req.ApprovalDate = DateTime.UtcNow;
+        await _db.SaveChangesAsync();
+
+        return Ok(new { message = "Demande de contre-passation rejetée." });
+    }
+
+    [HttpPost("reversal-requests/{id:int}/execute")]
+    public async Task<ActionResult> ExecuteReversal(int id, ExecuteReversalDto request)
+    {
+        var req = await _db.TransactionReversalRequests.FirstOrDefaultAsync(r => r.TransactionReversalRequestID == id)
+            ?? throw new KeyNotFoundException("Demande introuvable.");
+        if (req.Status != "APPROVED")
+            throw new InvalidOperationException("Cette demande doit être approuvée avant de pouvoir être exécutée.");
+
+        var tx = await _db.Transactions.FirstOrDefaultAsync(t => t.TransactionID == request.TransactionID)
             ?? throw new KeyNotFoundException("Transaction introuvable.");
+        if (tx.ClientID != req.ClientID)
+            throw new InvalidOperationException("Cette transaction n'appartient pas au client indiqué dans la demande approuvée.");
+        if (Math.Abs(tx.Montant - req.Montant) > 0.01m)
+            throw new InvalidOperationException($"Le montant de cette transaction ({tx.Montant:N0}) ne correspond pas au montant approuvé ({req.Montant:N0}).");
+        if (tx.TransactionType is not (TransactionType.DEPOSIT or TransactionType.WITHDRAWAL or TransactionType.TRANSFER))
+            throw new InvalidOperationException("Seuls les dépôts, retraits et transferts peuvent être contre-passés.");
+        if (tx.Statut != "VALIDATED")
+            throw new InvalidOperationException("Cette transaction n'est plus dans un état permettant une contre-passation.");
+
         var account = await _db.Accounts.FirstOrDefaultAsync(a => a.AccountID == tx.AccountID)
             ?? throw new KeyNotFoundException("Compte introuvable.");
 
@@ -333,9 +387,10 @@ public class TransactionController : ControllerBase
         }
 
         tx.Statut = "REVERSED";
-        req.Status = "APPROVED";
-        req.ApprovedBy = _currentUser.CodeUser;
-        req.ApprovalDate = DateTime.UtcNow;
+        req.Status = "COMPLETED";
+        req.TransactionID = tx.TransactionID;
+        req.ExecutedBy = _currentUser.CodeUser;
+        req.ExecutionDate = DateTime.UtcNow;
         await _db.SaveChangesAsync();
 
         // Mirror the original journal entry too, so the accounting stays correct.
@@ -343,23 +398,6 @@ public class TransactionController : ControllerBase
         if (originalEntry != null)
             await _journal.ReverseEntryAsync(originalEntry.JournalEntryID, _currentUser.CodeUser!);
 
-        return Ok(new { message = "Transaction contre-passée et fonds restitués." });
-    }
-
-    [HttpPost("reversal-requests/{id:int}/reject")]
-    [Authorize(Policy = "SupervisorOrAdmin")]
-    public async Task<ActionResult> RejectReversal(int id, RequestReversalRequest request)
-    {
-        var req = await _db.TransactionReversalRequests.FirstOrDefaultAsync(r => r.TransactionReversalRequestID == id)
-            ?? throw new KeyNotFoundException("Demande introuvable.");
-        if (req.Status != "PENDING") throw new InvalidOperationException("Cette demande a déjà été traitée.");
-
-        req.Status = "REJECTED";
-        req.RejectionReason = request.Reason;
-        req.ApprovedBy = _currentUser.CodeUser;
-        req.ApprovalDate = DateTime.UtcNow;
-        await _db.SaveChangesAsync();
-
-        return Ok(new { message = "Demande de contre-passation rejetée." });
+        return Ok(new { message = "Transaction contre-passée et fonds restitués immédiatement." });
     }
 }

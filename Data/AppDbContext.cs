@@ -563,6 +563,7 @@ public class AppDbContext : DbContext
 
         modelBuilder.Entity<TransactionReversalRequest>().ToTable("TransactionReversalRequest");
         modelBuilder.Entity<TransactionReversalRequest>().HasOne<Transactions>().WithMany().HasForeignKey(x => x.TransactionID).OnDelete(DeleteBehavior.Restrict);
+        modelBuilder.Entity<TransactionReversalRequest>().Property(x => x.Montant).HasColumnType("decimal(18,2)");
 
         modelBuilder.Entity<Vault>().Property(x => x.Balance).HasColumnType("decimal(18,2)");
         modelBuilder.Entity<Vault>().Property(x => x.MinimumBalance).HasColumnType("decimal(18,2)");
